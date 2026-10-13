@@ -50,7 +50,10 @@ Docker layers, committed files or command-line arguments.
 ```sh
 vercel deploy --target preview --yes --scope ancsingabors-projects
 # Run browser and API acceptance against the resulting preview first.
-vercel promote DEPLOYMENT_URL --scope ancsingabors-projects
+# Build the production environment without publishing its aliases yet:
+vercel deploy --prod --skip-domain --yes --scope ancsingabors-projects
+# Verify that production deployment without auth headers, then:
+vercel promote PRODUCTION_DEPLOYMENT_URL --scope ancsingabors-projects
 ```
 
 Sessions are namespaced by `VERCEL_ENV`; global admission and usage limits are
@@ -139,4 +142,8 @@ Browser assets total 340,176 bytes; no WASM, module ZIP or corpus request occurs
 Local readiness was approximately 0.3 seconds; the first measured preview
 readiness was approximately 1.1 seconds, with a sample HunRUF lookup taking
 approximately 0.6 seconds over the network. Measurements depend on network,
-cache state and platform cold starts.
+cache state and platform cold starts. The production-environment build also
+passed the 23 checks without authentication headers: approximately 0.8 seconds
+to readiness and 0.55 seconds for a Hungarian lookup. A real nearest12 run
+was cancelled from the browser in approximately two seconds and retained both
+clipboards. API/subprocess/storage checks total 13 passing tests.

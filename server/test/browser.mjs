@@ -88,4 +88,8 @@ try {
   const report = { url, loadMs, assetBytes, errors, results };
   fs.writeFileSync(path.join(output, 'browser.json'), JSON.stringify(report, null, 2));
   console.log(JSON.stringify({ url, loadMs, assetBytes, checks: results.length, errors, output }, null, 2));
+  await page.evaluate(async () => {
+    const id = sessionStorage.getItem('bibref-session');
+    await fetch(`/api/sessions/${id}`, { method:'DELETE', headers:{'Content-Type':'application/json'}, body:'{}' });
+  });
 } finally { await browser.close(); }
