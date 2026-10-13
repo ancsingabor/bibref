@@ -1,0 +1,10 @@
+.git
+.env*
+.agents
+skills-lock.json
+/build
+/build-*
+bibref-addbooks-cache
+server/node_modules
+server/public/vendor
+server/test-results

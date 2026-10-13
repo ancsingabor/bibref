@@ -304,8 +304,16 @@ string bidi_to_visual(const string& input_utf8) {
 }
 #endif // WITH_FRIBIDI
 
+#ifdef BIBREF_JSON
+extern bool machine_mode;
+extern void machine_emit(bool failed, const string &message);
+#endif
+
 void info(const string &message)
 {
+#ifdef BIBREF_JSON
+    if (machine_mode) { machine_emit(false, message); return; }
+#endif
 #ifndef __EMSCRIPTEN__
 #define MAX_WORD_LENGTH 50
     if (texmacs_mode) {
@@ -523,6 +531,8 @@ void processHelpCmd(string input)
     }
 #ifdef __EMSCRIPTEN__
     showAvailableBibles();
+#elif defined(BIBREF_JSON)
+    if (machine_mode) showAvailableBibles();
 #endif
     info("Please visit https://github.com/kovzol/bibref/wiki/Terminal-based-interface to get online help.");
 }
@@ -1461,6 +1471,9 @@ EMSCRIPTEN_KEEPALIVE const char *bibref_wasm_vocabulary()
 
 void error(const string &message)
 {
+#ifdef BIBREF_JSON
+    if (machine_mode) { machine_emit(true, message); return; }
+#endif
     string message_sent = "";
 #ifndef __EMSCRIPTEN__
     message_sent += error_color;

@@ -1,1 +1,8 @@
 __pycache__/
+.vercel
+.env*
+node_modules/
+server/public/vendor/
+server/test-results/
+.agents/
+skills-lock.json

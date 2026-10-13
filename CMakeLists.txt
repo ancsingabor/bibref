@@ -82,6 +82,14 @@ add_executable(bibref main.cpp book.cpp book.h books.cpp books.h fingerprint.cpp
  ${PBRST_SRCS}
 )
 
+option(BIBREF_JSON "Build the optional native JSON command interface" OFF)
+if(BIBREF_JSON AND NOT EMSCRIPTEN)
+  find_package(nlohmann_json REQUIRED)
+  target_sources(bibref PRIVATE machine-bridge.cpp)
+  target_compile_definitions(bibref PRIVATE BIBREF_JSON)
+  target_link_libraries(bibref nlohmann_json::nlohmann_json)
+endif()
+
 SET_SOURCE_FILES_PROPERTIES(
   PROPERTIES
   EXTERNAL_OBJECT true

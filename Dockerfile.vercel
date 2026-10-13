@@ -1,0 +1,41 @@
+# Native engine and prebuilt caches; no Emscripten or corpus files in public assets.
+FROM ubuntu:24.04 AS engine
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates cmake build-essential pkgconf libsword-dev libreadline-dev \
+    libboost-filesystem-dev libgraphviz-dev libfribidi-dev bison flex unzip python3 nlohmann-json3-dev
+WORKDIR /source
+COPY CMakeLists.txt *.cpp *.h sword-lxx-sblgnt-statresgnt-kjv-fallback.zip ./
+COPY statements ./statements
+COPY html ./html
+COPY docker/cli/web ./docker/cli/web
+COPY server/make-manifest.py ./server/make-manifest.py
+RUN cmake -S . -B build -DBIBREF_JSON=ON -DCMAKE_BUILD_TYPE=Release && \
+    cmake --build build -j2 && cmake --install build
+WORKDIR /source/build
+RUN python3 ../docker/cli/web/install-modules.py && \
+    python3 ../docker/cli/web/check-modules.py /usr/local/bin/bibref && \
+    bibref -a < /dev/null && python3 ../server/make-manifest.py
+
+FROM node:24-bookworm-slim AS javascript
+WORKDIR /app/server
+COPY server/package*.json ./
+RUN npm ci --omit=dev
+COPY server ./
+RUN node vendor.js
+
+FROM ubuntu:24.04
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates libsword1.9.0 libboost-filesystem1.83.0 libgvc6 libreadline8t64 libfribidi0 util-linux && \
+    rm -rf /var/lib/apt/lists/* && useradd -u 10001 -M bibref
+COPY --from=javascript /usr/local/bin/node /usr/local/bin/node
+COPY --from=javascript /app/server /app/server
+COPY --from=engine /usr/local/bin/bibref /usr/local/bin/bibref
+COPY --from=engine /root/.sword/mods.d /opt/bibref/.sword/mods.d
+COPY --from=engine /root/.sword/modules /opt/bibref/.sword/modules
+COPY --from=engine /source/build/bibref-addbooks-cache /opt/bibref/bibref-addbooks-cache
+COPY --from=engine /opt/bibref/manifest.json /opt/bibref/manifest.json
+ENV HOME=/opt/bibref SWORD_PATH=/opt/bibref/.sword PORT=80 NODE_ENV=production
+WORKDIR /opt/bibref
+USER bibref
+EXPOSE 80
+CMD ["node", "/app/server/index.js"]

@@ -60,6 +60,10 @@ void showHelp(const string &executable)
 #ifndef __EMSCRIPTEN__
 int main(int argc, char **argv)
 {
+#ifdef BIBREF_JSON
+    extern int machine_main();
+    if (argc == 2 && string(argv[1]) == "--json") return machine_main();
+#endif
     InputParser input(argc, argv);
     if (input.cmdOptionExists("-h")) {
         showHelp(argv[0]);

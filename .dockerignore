@@ -4,3 +4,10 @@ build-*
 bibref-addbooks-cache
 
 **/__pycache__
+.env*
+.vercel
+.agents
+skills-lock.json
+server/node_modules
+server/public/vendor
+server/test-results
