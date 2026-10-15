@@ -107,7 +107,7 @@ Resource defaults:
 
 - Two concurrent commands globally, one per session.
 - 30 submissions/minute/IP, five session creations/hour/IP, 120 API requests/minute/IP.
-- 64 KiB command input, 64 KiB per clipboard, 2 MiB command output.
+- 64 KiB command input, 256 KiB per clipboard, 2 MiB command output.
 - Seven-day sliding session expiry; newest 100 commands and at most 2 MiB of history.
 - 200 MiB global session capacity, conservatively reserved in 2.25 MiB slots.
 - One hour of aggregate execution daily (UTC): reserve the full command deadline

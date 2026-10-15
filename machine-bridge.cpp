@@ -17,6 +17,7 @@ extern std::string error_color;
 extern void set_colors(bool);
 extern std::string cli_process(char *);
 bool machine_mode = false;
+static constexpr size_t clipboard_bytes = 262144;
 static bool streaming = false, failed = false, initialization_failed = false;
 
 static void emit(const json &event) { std::cout << event.dump() << '\n' << std::flush; }
@@ -52,7 +53,7 @@ int machine_main() {
         auto state = request.at("state");
         for (int i = 0; i < 2; ++i) {
             text[i] = state.at("text").at(i).get<std::string>();
-            if (text[i].size() > 65536) throw std::runtime_error("Clipboard exceeds 64 KiB");
+            if (text[i].size() > clipboard_bytes) throw std::runtime_error("Clipboard exceeds 256 KiB");
             textset[i] = state.at("textset").at(i).get<bool>();
         }
         maxresults = state.at("maxresults").get<int>();
@@ -76,7 +77,7 @@ int machine_main() {
             std::vector<char> input(command.begin(), command.end()); input.push_back('\0');
             cli_process(input.data());
         }
-        if (text[0].size() > 65536 || text[1].size() > 65536) throw std::runtime_error("Clipboard exceeds 64 KiB");
+        if (text[0].size() > clipboard_bytes || text[1].size() > clipboard_bytes) throw std::runtime_error("Clipboard exceeds 256 KiB");
         emit({{"type", "result"}, {"ok", !failed}, {"closed", control == "quit"},
               {"state", {{"text", {text[0], text[1]}}, {"textset", {bool(textset[0]), bool(textset[1])}},
                          {"maxresults", maxresults}, {"diagram", diagram}, {"colors", !error_color.empty()}}}});
