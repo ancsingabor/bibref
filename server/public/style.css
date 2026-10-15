@@ -1,2 +1,29 @@
 :root{color-scheme:dark;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;background:#080b0e;color:#dce2e7}
 body{margin:0;display:flex;flex-direction:column;height:100vh;height:100dvh;overflow:hidden}header{flex-shrink:0;display:flex;align-items:center;gap:14px;padding:14px 18px;border-bottom:1px solid #27313a;flex-wrap:wrap;background:#11171d}header strong{font-size:18px;color:#f4f8fc}#status{color:#a3b7c7;font-size:12px}#elapsed{font-size:12px;min-width:60px}button,select{font:inherit;font-size:12px;padding:6px 10px;border:1px solid #3b4a56;border-radius:4px;background:#17222c;color:#dce2e7;cursor:pointer}button:disabled{opacity:.4;cursor:default}#cancel{margin-left:auto}button:hover:enabled{border-color:#85b5da}main.terminal{flex:1;min-height:0;box-sizing:border-box;overflow:hidden;padding:18px;--background:#080b0e;--color:#dce2e7;--size:1.1}footer{flex-shrink:0;padding:12px 18px;font-size:11px;color:#90a0ad;border-top:1px solid #27313a;line-height:1.6}a{color:#9dcced}.text-line{unicode-bidi:plaintext;white-space:pre-wrap;overflow-wrap:anywhere}.ansi-yellow{color:#bbb637}.ansi-cyan{color:#61bdc3}.ansi-red{color:#ff8c87}.ansi-bold{font-weight:700}.diagram{background:#fff;color:#111;display:inline-block;max-width:100%;overflow:auto;padding:8px}.diagram svg{max-width:100%;height:auto}.notice{max-width:850px;margin:40px auto;padding:20px;line-height:1.7}.notice h1{font-size:25px}.notice li{margin:16px 0}
+[hidden]{display:none!important}
+button:focus-visible,select:focus-visible,summary:focus-visible,pre:focus-visible{outline:2px solid #9dcced;outline-offset:3px}
+#workspace-tabs{display:flex;gap:4px;padding:8px 18px 0;border-bottom:1px solid #27313a;font-family:system-ui,sans-serif;background:#11171d}
+#workspace-tabs button{font:inherit;padding:9px 20px;border:0;border-radius:4px 4px 0 0;background:transparent;color:#90a0ad}
+#workspace-tabs button[aria-selected=true]{color:#dce2e7;background:#080b0e;box-shadow:inset 0 -2px #9dcced}
+#python-workspace{display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden;font-family:system-ui,sans-serif}
+.python-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:14px 18px 8px}
+.python-toolbar button,.python-toolbar select,.pane-heading button{font-family:system-ui,sans-serif}
+.python-toolbar label{display:flex;align-items:center;gap:8px;font-size:12px;color:#a3b7c7}
+#python-run{background:#9dcced;color:#080b0e;border-color:#9dcced;font-weight:650}
+.shortcut{font-size:10px;font-weight:400;margin-left:12px}
+#python-status{margin-left:auto;font-size:12px;color:#9dcced}
+.python-intro{margin:0;padding:4px 18px 14px;color:#a3b7c7;font-size:12px;line-height:1.5}
+.python-panes{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);flex:1;min-height:0;border-top:1px solid #27313a}
+.python-editor-pane,.python-output-pane{display:flex;flex-direction:column;min-width:0;min-height:0;overflow:hidden}
+.python-editor-pane{border-right:1px solid #27313a}
+.pane-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:36px;padding:5px 14px;background:#11171d;color:#dce2e7;font-size:12px;border-bottom:1px solid #27313a}
+.pane-heading span{color:#90a0ad;font-size:10px}
+#python-editor{flex:1;min-height:0;overflow:hidden}
+#python-output{flex:1;min-height:0;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;margin:0;padding:16px;font:14px/1.65 ui-monospace,SFMono-Regular,Consolas,monospace;unicode-bidi:plaintext}
+#python-traceback{display:flex;flex-wrap:wrap;gap:8px;padding:0 16px}
+#python-traceback:not(:empty){padding-bottom:12px}
+.python-help{flex-shrink:0;border-top:1px solid #27313a;padding:10px 18px;color:#a3b7c7;font-size:12px;line-height:1.6;max-height:30vh;overflow:auto}
+.python-help summary{cursor:pointer;color:#9dcced}
+.python-help p{max-width:90ch}
+@media(max-width:760px){.python-panes{grid-template-columns:1fr;grid-template-rows:minmax(180px,1.2fr) minmax(120px,1fr)}.python-editor-pane{border-right:0;border-bottom:1px solid #27313a}.python-toolbar{gap:8px;padding:10px 12px 6px}.shortcut,.pane-heading span{display:none}.python-intro{padding:4px 12px 10px}#python-status{width:100%;margin:0}.python-help{padding:8px 12px}#workspace-tabs{padding-left:12px}footer{padding:8px 12px}}
+@media(max-width:760px){#python-workspace{overflow:auto}.python-panes{flex-shrink:0;min-height:280px}}

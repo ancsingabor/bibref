@@ -49,7 +49,7 @@ export function createApp({ store, manifest, secret, bin, cwd, runner = executeN
     res.setHeader('Set-Cookie', `bibref_owner=${raw}.${sign(raw)}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${store.config.sessionTTL}${secure ? '; Secure' : ''}`);
   }
   const ipHash = (req) => sign(req.ip || 'unknown').slice(0, 24);
-  const ensureId = (id) => { if (!uuid.test(id || '')) throw new ApiError('invalid_id'); };
+  const ensureId = (id) => { if (typeof id !== 'string' || !uuid.test(id)) throw new ApiError('invalid_id'); };
   app.use((req, res, next) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'same-origin');

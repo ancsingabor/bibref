@@ -1,5 +1,6 @@
 export const RESPONSE_BYTES = 2 * 1024 * 1024;
 export const supported = () => self.crossOriginIsolated && typeof SharedArrayBuffer !== 'undefined';
+const operations = new Set(['text_n', 'latintext_n', 'lookup_n', 'raw_n', 'find_n', 'maxresults', 'jaccard12', 'nearest12', 'getrefs_maxlength']);
 
 export function startPython(source, { operation, output, state, completed, failed }) {
   if (!supported()) throw new Error('Python needs a current browser with cross-origin isolation over HTTPS. Terminal is still available.');
@@ -17,7 +18,9 @@ export function startPython(source, { operation, output, state, completed, faile
     if (stopped || !data || data.token !== token) return;
     try {
       if (data.type === 'operation') {
-        if (inFlight || data.sequence !== nextSequence || nextSequence >= 256 || typeof data.operation !== 'string' || !Array.isArray(data.args)) throw new Error('Invalid Python bridge request');
+        if (inFlight || data.sequence !== nextSequence || nextSequence >= 256 || !operations.has(data.operation) || !Array.isArray(data.args) || data.args.length > 5 ||
+            !data.args.every(value => typeof value === 'string' ? value.length <= 60000 : Number.isSafeInteger(value)) ||
+            new TextEncoder().encode(JSON.stringify(data.args)).length > 65536) throw new Error('Invalid Python bridge request');
         inFlight = true;
         const sequence = nextSequence++;
         let result;

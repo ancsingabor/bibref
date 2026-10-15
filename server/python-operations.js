@@ -26,6 +26,10 @@ export function pythonOperation(operation, args, modules) {
     case 'raw_n':
       arity(5);
       if (!/^[A-Za-z0-9_]+$/.test(text(args[2], 128))) invalid();
+      integer(args[3], 1, 2147483647); integer(args[4], -1, 2147483647);
+      // The native engine adds signed int positions. Reject overflow and permit
+      // its whole-book sentinel only at the documented starting position.
+      if (args[4] === 0 || (args[4] === -1 ? args[3] !== 1 : args[3] + args[4] - 1 > 2147483647)) invalid();
       command = `raw${clipboard(args[0])} ${module(args[1])} ${args[2]} ${integer(args[3], 1, 2147483647)} ${integer(args[4], -1, 2147483647)}`;
       break;
     case 'find_n':

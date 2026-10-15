@@ -2,7 +2,7 @@
 (() => {
   const status = document.querySelector('#status'), elapsed = document.querySelector('#elapsed');
   const cancel = document.querySelector('#cancel'), newButton = document.querySelector('#new-session'), recent = document.querySelector('#recent');
-  let meta, session, active, term, busy = false, multiline = '', clock;
+  let meta, session, active, term, busy = false, pythonBusy = false, multiline = '', clock;
   const escape = text => text.replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
   const notice = text => term.echo(escape(text), { raw: true });
   function safeText(text) {
@@ -48,7 +48,7 @@
     for (const s of saved) recent.add(new Option(`${s.id.slice(0, 8)} · ${new Date(s.date).toLocaleDateString()}`, s.id));
   }
   function controls() {
-    cancel.disabled = !active; newButton.disabled = busy; recent.disabled = busy;
+    cancel.disabled = !active; newButton.disabled = busy || pythonBusy; recent.disabled = busy || pythonBusy;
     status.textContent = busy ? 'Running on server' : session?.closed ? 'Session closed' : session?.compatible === false ? 'History only · engine changed' : 'Connected';
   }
   async function resume(id) {
@@ -156,6 +156,36 @@
     term = $('#terminal').terminal(submit, { checkArity: false, name: 'bibref-server', greetings: '', prompt: '> ',
       completion: (_, callback) => callback([...new Set([...meta.vocabulary, 'clear'])]), clear: false });
     window.bibrefTerminal = term;
+    if (meta.features?.python) {
+      const terminalTab = document.querySelector('#terminal-tab'), pythonTab = document.querySelector('#python-tab');
+      const workspace = document.querySelector('#python-workspace');
+      document.querySelector('#workspace-tabs').hidden = false;
+      document.querySelector('#terminal').setAttribute('role', 'tabpanel');
+      document.querySelector('#terminal').setAttribute('aria-labelledby', 'terminal-tab');
+      let pythonUI;
+      async function selectPython(show) {
+        document.querySelector('#terminal').hidden = show; workspace.hidden = !show;
+        terminalTab.setAttribute('aria-selected', String(!show)); pythonTab.setAttribute('aria-selected', String(show));
+        terminalTab.tabIndex = show ? -1 : 0; pythonTab.tabIndex = show ? 0 : -1;
+        if (show) {
+          term.disable();
+          try {
+            pythonUI ||= import('/python/ui.js').then(({ initPython }) => initPython({ api, getSession: () => session,
+              setBusy: value => { pythonBusy = value; controls(); } }));
+            await pythonUI;
+          } catch (error) { document.querySelector('#python-status').textContent = `Could not load editor: ${error.message}`; }
+        } else { term.enable(); if (!session?.closed && session?.compatible !== false) term.focus(); }
+      }
+      terminalTab.addEventListener('click', () => { void selectPython(false); });
+      pythonTab.addEventListener('click', () => { void selectPython(true); });
+      document.querySelector('#workspace-tabs').addEventListener('keydown', event => {
+        if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
+          event.preventDefault();
+          const show = event.key === 'End' || (event.key !== 'Home' && pythonTab.getAttribute('aria-selected') !== 'true');
+          void selectPython(show); (show ? pythonTab : terminalTab).focus();
+        }
+      });
+    }
     showRecent();
     const id = sessionStorage.getItem('bibref-session');
     if (id) {

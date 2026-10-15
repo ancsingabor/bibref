@@ -159,6 +159,10 @@ export class Store {
     const ttl = session.python ? Math.max(1, Math.ceil((session.python.deadline - Date.now()) / 1000) + 30) : c.sessionTTL;
     const next = { ...session, lastActiveAt: Date.now(), state: state || session.state,
       revision: session.revision + 1, closed: state ? closed : session.closed };
+    if (session.python && record.status === 'failed') {
+      next.closed = true;
+      next.state = initialState();
+    }
     delete next.pending;
     record.revision = next.revision;
     if (Buffer.byteLength(JSON.stringify([record])) > c.transcriptBytes) {

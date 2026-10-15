@@ -79,6 +79,7 @@ test('Python run ownership, stale revisions, singleton and validation fail befor
   assert.equal((await f.request(f.root, 'POST', { revision: 0 })).status, 409);
   const url = `${f.root}/${run.id}/operations`;
   const invalid = [ ['find_n', [1, 'unknown']], ['text_n', [1, 'abc\nquit']], ['text_n', [3, 'abc']], ['maxresults', [10001]], ['maxresults', [true]], ['spawn_bibref', []], ['text_n', [1, 'a#quit']], ['lookup_n', [1, 'unknown Genesis 1:1']] ];
+  invalid.push(['raw_n', [1, 'LXX', 'Genesis', 2, 2147483647]], ['raw_n', [1, 'LXX', 'Genesis', 2, -1]]);
   for (const [operation, args] of invalid) assert.equal((await f.request(url, 'POST', { requestId: randomUUID(), sequence: 0, operation, args })).status, 400);
   const foreign = await fetch(f.base + url, { method: 'POST', headers: { Origin: f.base, 'Content-Type': 'application/json' }, body: JSON.stringify({ requestId: randomUUID(), sequence: 0, operation: 'maxresults', args: [100] }) });
   assert.equal(foreign.status, 404); assert.equal(executions, 0);
@@ -123,4 +124,33 @@ test('Python feature is disabled by default and parser refuses malformed output'
   const run = await broken.start();
   const response = await broken.request(`${broken.root}/${run.id}/operations`, 'POST', { requestId: randomUUID(), sequence: 0, operation: 'jaccard12', args: [] });
   assert.equal(frames(await response.text()).at(-1).record.code, 'engine_crash');
+});
+
+test('Python absolute deadlines and aggregate output limits are enforced on the server', async () => {
+  let executions = 0;
+  const f = await fixture((...args) => { executions++; return normal(...args); });
+  const run = await f.start(), privateStore = new PythonStore(f.store);
+  const body = { requestId: randomUUID(), sequence: 0, operation: 'find_n', args: [1, 'LXX'] };
+  const operation = `${f.root}/${run.id}/operations`;
+  await f.store.eval("local s=cjson.decode(redis.call('GET',KEYS[1])); s.python.deadline=1; redis.call('SET',KEYS[1],cjson.encode(s),'KEEPTTL'); return '{}'", [privateStore.key(run.id)]);
+  assert.equal((await (await f.request(operation, 'POST', body)).json()).code, 'timeout');
+  assert.equal(executions, 0);
+  await f.request(`${f.root}/${run.id}/end`, 'POST', {});
+  const second = await f.start();
+  await f.store.eval("local s=cjson.decode(redis.call('GET',KEYS[1])); s.python.bytes=2097150; redis.call('SET',KEYS[1],cjson.encode(s),'KEEPTTL'); return '{}'", [privateStore.key(second.id)]);
+  const result = await f.request(`${f.root}/${second.id}/operations`, 'POST', { ...body, requestId: randomUUID() });
+  assert.equal(frames(await result.text()).at(-1).record.code, 'output_limit');
+  assert.deepEqual((await (await f.request(`/api/sessions/${f.session.id}`)).json()).state, f.session.state);
+});
+
+test('Python operation deadlines abort work and run creation is limited to five/hour/IP', async () => {
+  const f = await fixture(async (_, { signal }) => new Promise((resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason), { once: true })), { commandMs: 20 });
+  const run = await f.start();
+  const response = await f.request(`${f.root}/${run.id}/operations`, 'POST', { requestId: randomUUID(), sequence: 0, operation: 'jaccard12', args: [] });
+  assert.equal(frames(await response.text()).at(-1).record.code, 'timeout');
+  for (let i = 1; i < 5; i++) {
+    const next = await f.start(); assert.ok(next.id);
+    await f.request(`${f.root}/${next.id}/end`, 'POST', {});
+  }
+  assert.equal((await f.request(f.root, 'POST', { revision: 0 })).status, 429);
 });
