@@ -12,3 +12,9 @@ for (const [source, target] of [
  ['dompurify/LICENSE', 'dompurify-LICENSE.txt'],
  ['dompurify/LICENSE-MPL', 'dompurify-LICENSE-MPL.txt'],
 ]) copyFileSync(path.join(root, 'node_modules', source), path.join(root, 'public/vendor', target));
+
+// npm's lockfile pins both the runtime and its bundled standard library.
+mkdirSync(path.join(root, 'public/vendor/pyodide'), { recursive: true });
+for (const file of ['pyodide.mjs', 'pyodide.asm.mjs', 'pyodide.asm.wasm', 'python_stdlib.zip', 'pyodide-lock.json']) {
+  copyFileSync(path.join(root, 'node_modules/pyodide', file), path.join(root, 'public/vendor/pyodide', file));
+}
