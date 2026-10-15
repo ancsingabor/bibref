@@ -157,3 +157,14 @@ passed the 23 checks without authentication headers: approximately 0.8 seconds
 to readiness and 0.55 seconds for a Hungarian lookup. A real nearest12 run
 was cancelled from the browser in approximately two seconds and retained both
 clipboards. API/subprocess/storage checks total 13 passing tests.
+
+## Python examples from the book
+
+The Python editor includes both code examples from `bibref-hu-20260812+.pdf`:
+exercise 2.1 (p. 22), counting Matthew 1 names in the LXX, and exercise 2.5
+(p. 45), finding the nearest passages to Matthew 5:31 in Leviticus, Numbers,
+and Deuteronomy. The examples preserve the book’s inputs and operations, with
+source comments, browser-ready indentation, and an English explanatory comment.
+The whole-book searches can take several minutes; Stop cancels a running script.
+A nearest match is a similarity result, not evidence of a quotation: the book
+discusses these particular matches as false positives.

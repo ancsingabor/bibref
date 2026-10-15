@@ -1,5 +1,6 @@
 export const examples = {
-  names: `from bibref.tools import *
+  names: `# Book: bibref-hu-20260812+.pdf, exercise 2.1, p. 22
+from bibref.tools import *
 
 names = [
     "Farec", "Zara", "Esrwm", "Aram", "Aminadab", "Naasswn",
@@ -15,6 +16,18 @@ for name in names:
     occurrences = find1("LXX")
     print(f"{name}:{len(occurrences)} ", end='')
 print()
+`,
+  nearest: `# Book: bibref-hu-20260812+.pdf, exercise 2.5, p. 45
+# Find the closest passages to Matthew 5:31 in three books of Moses.
+# Whole-book nearest searches can take several minutes. Use Stop to cancel.
+from bibref.tools import *
+
+text2("Oc an apolush thn gunaika autou, dotw auth apostasion")
+for book in ["Leviticus", "Numbers", "Deuteronomy"]:
+    raw1("LXX", book, 1, -1)
+    n = nearest12()  # n[0]: Jaccard distance (%); n[1]: matching text
+    latintext1(n[1])
+    print(n, find1("LXX"))
 `,
   compare: `from bibref.tools import *
 
