@@ -7,6 +7,9 @@ on:
       - '.github/workflows/server.yml'
 permissions:
   contents: read
+concurrency:
+  group: server-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 jobs:
   browser-python:
     runs-on: ubuntu-24.04
