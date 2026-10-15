@@ -22,7 +22,7 @@ print()
 # Whole-book nearest searches can take several minutes. Use Stop to cancel.
 from bibref.tools import *
 
-text2("Oc an apolush thn gunaika autou, dotw auth apostasion")
+text2("Ος αν απολυση την γυναικα αυτου, δοτω αυτη αποστασιον")
 for book in ["Leviticus", "Numbers", "Deuteronomy"]:
     raw1("LXX", book, 1, -1)
     n = nearest12()  # n[0]: Jaccard distance (%); n[1]: matching text

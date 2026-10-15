@@ -75,6 +75,16 @@ for name, args in cases:
     assert expected == actual and type(expected) is type(actual), (name, expected, actual)
 browser.text1('Raqab Rouj Iwajam')
 assert calls[-1] == ('text_n', [1, 'Ραχαβ Ρουθ Ιωαθαμ'])
+# The book's Greek font extracts as ASCII. Punctuation bypasses the optional
+# ASCII conversion, so the runnable example must carry actual Unicode Greek.
+examples_source = (root / 'server/public/python/examples.js').read_text()
+nearest_source = examples_source.split('  nearest: `', 1)[1].split('`,', 1)[0]
+sys.modules['bibref'] = types.ModuleType('bibref')
+sys.modules['bibref.tools'] = browser
+exec(nearest_source, {})
+assert ('text_n', [2, 'Ος αν απολυση την γυναικα αυτου, δοτω αυτη αποστασιον']) in calls
+assert [args for operation, args in calls if operation == 'raw_n'][-3:] == [
+    [1, 'LXX', book, 1, -1] for book in ['Leviticus', 'Numbers', 'Deuteronomy']]
 for name in ['spawn_bibref', 'set_bibref_path']:
     try:
         getattr(browser, name)()
