@@ -24,7 +24,7 @@ const publicSession = (s, version) => ({ id: s.id, revision: s.revision, state: 
   createdAt: s.createdAt, lastActiveAt: s.lastActiveAt, closed: s.closed, compatible: s.version === version });
 const publicJob = (j) => j ? ({ requestId: j.requestId, command: j.command, startedAt: j.startedAt, deadline: j.deadline }) : null;
 
-export function createApp({ store, manifest, secret, bin, cwd, runner = executeNative, publicDir = path.join(import.meta.dirname, 'public'), log = console.log, disconnectMs = 10000, pollMs = 2000 }) {
+export function createApp({ store, manifest, secret, bin, cwd, runner = executeNative, publicDir = path.join(import.meta.dirname, 'public'), log = console.log, disconnectMs = 10000, pollMs = 2000, pythonEnabled = false }) {
   if (!secret || secret.length < 32) throw new Error('A strong BIBREF_COOKIE_SECRET is required');
   const app = express();
   app.disable('x-powered-by');
@@ -53,6 +53,15 @@ export function createApp({ store, manifest, secret, bin, cwd, runner = executeN
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'same-origin');
     res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");
+    if (pythonEnabled) {
+      res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+      res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
+      res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
+    }
+    if (req.path === '/python/worker.js') {
+      const origin = `${req.protocol}://${req.get('host')}`;
+      res.setHeader('Content-Security-Policy', `default-src 'none'; script-src 'wasm-unsafe-eval' ${origin}/vendor/pyodide/ ${origin}/python/worker.js; connect-src ${origin}/vendor/pyodide/ ${origin}/python/tools.py; worker-src 'none'; object-src 'none'`);
+    }
     if (req.path.startsWith('/api')) res.setHeader('Cache-Control', 'no-store');
     if (req.method !== 'GET' && req.method !== 'HEAD') {
       // Trust only the deployment's own origin; protect anonymous owner cookies against CSRF.
@@ -67,7 +76,7 @@ export function createApp({ store, manifest, secret, bin, cwd, runner = executeN
     catch (e) { next(e); }
   });
   app.use(express.json({ limit: '80kb', strict: true }));
-  app.get('/api/meta', (req, res) => res.json({ ...manifest, limits: {
+  app.get('/api/meta', (req, res) => res.json({ ...manifest, features: { python: pythonEnabled }, limits: {
     commandBytes: store.config.commandBytes, outputBytes: store.config.outputBytes,
     commandSeconds: store.config.commandMs / 1000, sessionDays: store.config.sessionTTL / 86400 } }));
   app.get('/api/health', (req, res) => res.json({ ok: true, engineVersion: manifest.engineVersion }));
