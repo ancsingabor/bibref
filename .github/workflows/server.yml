@@ -1,0 +1,52 @@
+name: server
+on:
+  pull_request:
+    paths:
+      - 'server/**'
+      - 'Dockerfile.vercel'
+      - '.github/workflows/server.yml'
+permissions:
+  contents: read
+jobs:
+  browser-python:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      redis:
+        image: redis:7-alpine
+        ports: ['6380:6379']
+        options: --health-cmd "redis-cli ping" --health-interval 3s --health-timeout 2s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+      - run: npm --prefix server ci
+      - run: node server/vendor.js
+      - run: npm --prefix server test
+      - run: python3 server/test/python-compat.py
+      - run: npm --prefix server audit --omit=dev
+      - run: node server/node_modules/playwright/cli.js install --with-deps chromium firefox webkit
+      - run: node server/test/python-runtime-browser.mjs
+      - run: docker build -f Dockerfile.vercel -t bibref-python-test .
+      - name: Start isolated native acceptance server
+        run: |
+          docker run -d --name bibref-python-acceptance --network host --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges:true -e PORT=8091 -e TEST_REDIS_URL=redis://127.0.0.1:6380 bibref-python-test node /app/server/test/python-local-server.mjs
+          for attempt in $(seq 1 40); do curl -fsS http://127.0.0.1:8091/api/health && exit 0; sleep 1; done
+          exit 1
+      - run: node server/test/python-browser.mjs
+      - name: Verify existing terminal and native cancellation with fresh test quotas
+        env:
+          BIBREF_WEB_URL: http://127.0.0.1:8091/
+        run: |
+          docker restart bibref-python-acceptance
+          for attempt in $(seq 1 40); do curl -fsS http://127.0.0.1:8091/api/health && break; sleep 1; done
+          node server/test/browser.mjs
+          node server/test/cancel-browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: server-browser-results
+          path: server/test-results/

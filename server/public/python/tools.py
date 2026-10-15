@@ -1,6 +1,21 @@
 """Browser implementation of the repository's bibref.tools API."""
 from js import bibref_call as _call
 import json as _json
+import re as _re
+
+# Greek-font text copied from the book is ASCII, with q=chi, j=theta,
+# w=omega and c=final sigma. This is distinct from bibref's internal alphabet.
+_book_letters = dict(zip("abgdezhjiklmnxoprsctufqyw", "αβγδεζηθικλμνξοπρσςτυφχψω"))
+_book_letters.update({key.upper(): value.upper() for key, value in list(_book_letters.items())})
+_book_letters[" "] = " "
+
+def _greek_input(value):
+    if isinstance(value, str) and _re.fullmatch(r"[A-Za-z ]+", value):
+        try:
+            return "".join(_book_letters[letter] for letter in value)
+        except KeyError:
+            raise ValueError("Unsupported book Greek-font letter; use Unicode Greek or latintext1/2") from None
+    return value
 
 def _rpc(operation, *args):
     result = _json.loads(str(_call(operation, _json.dumps(args))))
@@ -14,14 +29,16 @@ def set_bibref_path(fullpath=""):
 def spawn_bibref():
     raise NotImplementedError("Processes are unavailable in browser Python")
 
-def text_n(c, greektext): return _rpc("text_n", c, greektext)
+def text_n(c, greektext): return _rpc("text_n", c, _greek_input(greektext))
 def latintext_n(c, latintext): return _rpc("latintext_n", c, latintext)
 def lookup_n(c, passage): return _rpc("lookup_n", c, passage)
 def raw_n(c, bible, book, start, length): return _rpc("raw_n", c, bible, book, start, length)
 def find_n(c, bible): return _rpc("find_n", c, bible)
 def maxresults(m): return _rpc("maxresults", m)
-def jaccard12(): return _rpc("jaccard12")
-def nearest12(): return tuple(_rpc("nearest12"))
+def jaccard12(): return float(_rpc("jaccard12"))
+def nearest12():
+    distance, substring = _rpc("nearest12")
+    return float(distance), substring
 def getrefs_maxlength(getrefs_input): return _rpc("getrefs_maxlength", getrefs_input)
 def text1(text): return text_n(1, text)
 def text2(text): return text_n(2, text)

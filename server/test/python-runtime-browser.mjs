@@ -37,6 +37,7 @@ assert latin_to_greek('abcdefghijklmnopqrstuvwxyz') == 'αβψδεφγηιξκλ
       assert.equal(result.ok, true, JSON.stringify(result));
       assert.equal(result.text, 'Farec:1 Zara:1 ');
       assert.deepEqual(result.calls.map(x => x.sequence), [0, 1, 2, 3, 4]);
+      assert.deepEqual(result.calls[1].args, [1, 'Φαρες']);
       const denied = await page.evaluate(async () => {
         const { startPython } = await import('/python/runtime.js');
         return new Promise(resolve => startPython(`import js
@@ -46,6 +47,13 @@ request.send()`, { operation: () => {}, output: () => {}, state: () => {},
           completed: () => resolve(false), failed: error => resolve(error.message) }));
       });
       assert.match(denied, /PythonError|SyntaxError|fetch|Content Security|network/i);
+      const forged = await page.evaluate(async () => {
+        const { startPython } = await import('/python/runtime.js');
+        return new Promise(resolve => startPython(`from js import bibref_call
+bibref_call('quit', '[]')`, { operation: () => { throw new Error('forged operation reached bridge'); }, output: () => {}, state: () => {},
+          completed: () => resolve('unexpected completion'), failed: error => resolve(error.message) }));
+      });
+      assert.equal(forged, 'Invalid Python bridge request');
       const stop = await page.evaluate(async () => {
         const { startPython } = await import('/python/runtime.js');
         return new Promise(resolve => {

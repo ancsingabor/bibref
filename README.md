@@ -3,13 +3,15 @@
 This fork hosts an experimental server-based version of
 [upstream bibref](https://github.com/kovzol/bibref).
 The hosted application is at **https://bibref-server.vercel.app/**.
-Development takes place on `feat/server-web-vercel`; the server work is maintained
+The canonical base/default branch is `feat/server-web-vercel`; new fork PRs target it.
+`bibref-server` is the Vercel project name, not a branch. The server work is maintained
 here as a standalone experiment, with no planned upstream merge.
 
 The browser provides the terminal and diagrams. Node.js/Express runs the native
 C++ engine in a Vercel container, and Upstash Redis stores resumable sessions.
 See [server setup, deployment and limits](server/README.md) and the
-[proposed Python mode](docs/ideas/python-web-mode.md).
+[optional browser Python workspace](server/PYTHON.md), disabled by default until
+its release checks and an authorized preview have passed.
 
 The separate HunRUF/Aleppo WASM contribution in
 [upstream PR #36](https://github.com/kovzol/bibref/pull/36) is independent.

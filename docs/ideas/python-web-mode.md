@@ -1,5 +1,11 @@
 # Python mode for the experimental hosted bibref
 
+Implementation update (2026-10-15): the selected design runs Python in a browser
+worker and forwards only validated bibref operations to private server snapshots.
+See [implementation, security boundaries and release checks](../../server/PYTHON.md).
+The earlier server-side sandbox direction below is historical, not the selected
+execution architecture. Production remains unchanged.
+
 Saved 2026-10-15 at the user's request for continuation in a separate chat.
 
 ## Project context

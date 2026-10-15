@@ -1,7 +1,17 @@
 # Server-based bibref
 
+The fork's canonical/default base is `feat/server-web-vercel`; `bibref-server`
+names the Vercel project. New PRs target the fork base, independently of upstream.
+On 2026-10-15 the Vercel project had no Git integration/production branch configured;
+its production target recorded commit `598975e615061c58ada69399755b8b519ea5aaff`.
+Do not infer deployment status from a branch name or deploy without an explicit request.
+
+The [optional Python workspace](PYTHON.md) runs Python in the browser while
+native searches stay on this server. It is disabled unless
+`BIBREF_PYTHON_ENABLED=1`; default deployments retain the terminal alone.
+
 This hosted variant keeps all six SWORD modules and the Greek caches on the
-server. The browser runs only a terminal UI; commands use the original native
+server. The browser provides the terminal and optional Python editor; commands use the original native
 processor through its optional JSON-lines interface. Standard CLI and WASM
 builds still default to `BIBREF_JSON=OFF`.
 
