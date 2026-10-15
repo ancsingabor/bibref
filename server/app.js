@@ -3,6 +3,7 @@ import { createHmac, timingSafeEqual, randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { ApiError, initialState } from './store.js';
 import { executeNative } from './engine.js';
+import { installPythonApi } from './python-api.js';
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const messages = {
@@ -80,6 +81,7 @@ export function createApp({ store, manifest, secret, bin, cwd, runner = executeN
     commandBytes: store.config.commandBytes, outputBytes: store.config.outputBytes,
     commandSeconds: store.config.commandMs / 1000, sessionDays: store.config.sessionTTL / 86400 } }));
   app.get('/api/health', (req, res) => res.json({ ok: true, engineVersion: manifest.engineVersion }));
+  if (pythonEnabled) installPythonApi(app, { store, manifest, owner, ipHash, ensureId, runner, bin, cwd, pollMs, disconnectMs, log });
   app.post('/api/sessions', async (req, res) => {
     await store.rate(ipHash(req), 'sessions');
     const s = await store.create(owner(req, res, true), manifest.engineVersion);
