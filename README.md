@@ -1,3 +1,22 @@
+# Experimental bibref server web app
+
+This fork hosts an experimental server-based version of
+[upstream bibref](https://github.com/kovzol/bibref).
+The hosted application is at **https://bibref-server.vercel.app/**.
+Development takes place on `feat/server-web-vercel`; the server work is maintained
+here as a standalone experiment, with no planned upstream merge.
+
+The browser provides the terminal and diagrams. Node.js/Express runs the native
+C++ engine in a Vercel container, and Upstash Redis stores resumable sessions.
+See [server setup, deployment and limits](server/README.md) and the
+[proposed Python mode](docs/ideas/python-web-mode.md).
+
+The separate HunRUF/Aleppo WASM contribution in
+[upstream PR #36](https://github.com/kovzol/bibref/pull/36) is independent.
+Original project documentation and attribution follow below.
+
+---
+
 ![A bibref version based on the Qt graphical framework](bibref-qt.png)
 
 # bibref
