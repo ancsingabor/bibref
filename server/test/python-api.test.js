@@ -79,6 +79,7 @@ test('Python run ownership, stale revisions, singleton and validation fail befor
   assert.equal((await f.request(f.root, 'POST', { revision: 0 })).status, 409);
   const url = `${f.root}/${run.id}/operations`;
   const invalid = [ ['find_n', [1, 'unknown']], ['text_n', [1, 'abc\nquit']], ['text_n', [3, 'abc']], ['maxresults', [10001]], ['maxresults', [true]], ['spawn_bibref', []], ['text_n', [1, 'a#quit']], ['lookup_n', [1, 'unknown Genesis 1:1']] ];
+  invalid.push(['raw_n', [1, 'LXX', 'Genesis', 2, 2147483647]], ['raw_n', [1, 'LXX', 'Genesis', 2, -1]]);
   for (const [operation, args] of invalid) assert.equal((await f.request(url, 'POST', { requestId: randomUUID(), sequence: 0, operation, args })).status, 400);
   const foreign = await fetch(f.base + url, { method: 'POST', headers: { Origin: f.base, 'Content-Type': 'application/json' }, body: JSON.stringify({ requestId: randomUUID(), sequence: 0, operation: 'maxresults', args: [100] }) });
   assert.equal(foreign.status, 404); assert.equal(executions, 0);
