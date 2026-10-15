@@ -31,7 +31,17 @@ try {
   for(let i=0;i<100;i++) await page.mouse.wheel(0,800);
   await page.waitForTimeout(300);
   assert.ok(await scroller.evaluate(el=>el.scrollTop>0),'wheel can return toward prompt');
-  console.log(`Scroll checks passed: ${viewport.width}×${viewport.height}`);
+  const submissions = [];
+  page.on('request', request => {
+   if (request.url().includes('/commands')) submissions.push(request.url());
+  });
+  await page.evaluate(async()=>{ await bibrefTerminal.exec('clear'); });
+  assert.equal(await page.locator('.terminal-output').innerText(), '', 'clear removes visible output');
+  assert.equal(submissions.length, 0, 'clear makes no engine request');
+  assert.equal(await page.evaluate(()=>sessionStorage.getItem('bibref-session')), 'scroll-test', 'clear preserves session');
+  await page.evaluate(()=>bibrefTerminal.echo('Terminal still usable'));
+  assert.ok(await page.getByText('Terminal still usable',{exact:true}).isVisible());
+  console.log(`Scroll and clear checks passed: ${viewport.width}×${viewport.height}`);
   await page.close();
  }
 } finally { await browser.close(); }

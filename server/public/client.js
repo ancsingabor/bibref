@@ -54,7 +54,7 @@
   async function resume(id) {
     session = await (await api(`/api/sessions/${id}`)).json();
     active = session.active; remember(session); term.clear();
-    notice(`bibref ${meta.version} · server terminal. Type help for commands.`);
+    notice(`bibref ${meta.version} · server terminal. Type help for commands, or clear to clear the screen.`);
     for (const record of session.history) {
       notice(`> ${record.command}`);
       for (const event of Array.isArray(record.events) ? record.events : []) render(event);
@@ -71,7 +71,7 @@
     if (busy) return;
     session = await (await api('/api/sessions', 'POST', {})).json();
     remember(session); active = null; multiline = ''; term.clear(); term.set_prompt('> '); term.resume();
-    notice(`bibref ${meta.version} · server terminal. Type help for commands.`);
+    notice(`bibref ${meta.version} · server terminal. Type help for commands, or clear to clear the screen.`);
     controls();
   }
   async function recover(requestId) {
@@ -93,7 +93,10 @@
     sessionStorage.removeItem('bibref-pending');
   }
   async function submit(command) {
-    if (!session || busy || session.closed || session.compatible === false) return;
+    if (busy) return;
+    // Clearing the screen is local: leave server history and clipboards intact.
+    if (!multiline && command.trim() === 'clear') { term.clear(); return; }
+    if (!session || session.closed || session.compatible === false) return;
     if (multiline || /^statement\b/i.test(command.trim())) {
       multiline += (multiline ? '\n' : '') + command;
       if (!multiline.trim().endsWith('.')) { term.set_prompt('… '); return; }
@@ -151,7 +154,7 @@
   (async () => {
     meta = await (await api('/api/meta')).json();
     term = $('#terminal').terminal(submit, { checkArity: false, name: 'bibref-server', greetings: '', prompt: '> ',
-      completion: (_, callback) => callback(meta.vocabulary), clear: false });
+      completion: (_, callback) => callback([...new Set([...meta.vocabulary, 'clear'])]), clear: false });
     window.bibrefTerminal = term;
     showRecent();
     const id = sessionStorage.getItem('bibref-session');
