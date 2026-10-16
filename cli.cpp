@@ -307,6 +307,7 @@ string bidi_to_visual(const string& input_utf8) {
 #ifdef BIBREF_JSON
 extern bool machine_mode;
 extern void machine_emit(bool failed, const string &message);
+extern void machine_diagram_metadata(const string &analysis, const string &graphviz);
 #endif
 
 void info(const string &message)
@@ -1156,6 +1157,9 @@ void processStatementCmd(string input)
             info(graphviz_input);
         else { // ps or svg
             if (error_found) return; // don't try to feed graphviz with incorrect data
+#ifdef BIBREF_JSON
+            if (machine_mode) machine_diagram_metadata(output_s, graphviz_input);
+#endif
             string graphviz_output = gv_export(graphviz_input, diagram.c_str());
             if (graphviz_output.length() == 0) error("No diagram was generated");
             else info(graphviz_output);

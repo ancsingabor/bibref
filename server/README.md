@@ -169,3 +169,35 @@ input (the PDF extracts its Greek font as ASCII), and an English explanatory com
 The whole-book searches can take several minutes; Stop cancels a running script.
 A nearest match is a similarity result, not evidence of a quotation: the book
 discusses these particular matches as false positives.
+
+## Book examples and diagram inspection
+
+The workspace's **Book examples** library searches a checked-in catalogue by
+chapter, passage, exercise, command, and page. Terminal runs create a fresh session,
+apply included prerequisites and SVG setup, and stop on the first failed,
+cancelled, or uncertain command. Python examples load into the editor for review.
+The appendix's full-corpus shell script is download-only because its memory and
+time requirements exceed server limits. See `book/README.md` to rebuild the catalogue.
+
+SVG output events optionally include `fragments`: entries with an SVG `id`,
+`kind` (`quotation`, `introduction`, or `unquoted`), `module`, `book`, exact
+`reference`, one-based inclusive `start`/`end`, `length`, normalized `greek`,
+parent `passage`, and linked block IDs in `matches`. IDs are scoped to each SVG
+instance in the browser. Old events remain inspectable through existing tooltips.
+
+`POST /api/sessions/:id/context` accepts `{ "book": "Isaiah", "verse": "7:14" }`
+and returns `{ "module": "HunRUF", "book": "Isaiah", "verse": "7:14", "text": "…" }`.
+It requires the session owner's cookie and same-origin JSON. Each lookup uses a
+separate ephemeral job under the existing execution, capacity, and command quotas;
+it never updates the reader's clipboards, settings, revision, or command history.
+The client requests only verified mappings from the book catalogue. Missing
+modules/references do not prevent exact Greek inspection.
+
+Verification:
+
+```
+npm test
+BIBREF_WEB_URL=http://127.0.0.1:8092 node test/book-browser.mjs
+# In the engine build image, with the server directory mounted at /source/server:
+cd /source/build && python3 /source/server/test/book-native.py
+```

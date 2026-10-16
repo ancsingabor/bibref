@@ -1317,7 +1317,12 @@ void create_diagram() {
         sprintf(intbuffer, "%d", fragment); // interval number
         strcat(D, intbuffer);
       }
-      strcat(D, " [label=");
+      char node_id[64];
+      if (fragment == 0) sprintf(node_id, "u%d_%d", ob+1, uid-1);
+      else sprintf(node_id, "i%d", fragment);
+      add_parseinfo("diagram: metadata: %s\t%s\t%s\t%d\t%d\t%s\t%s\n", node_id,
+        ot_books[ob], ot_infos[ob], ot_blocks[ob][i][0] + oimins[ob], ot_blocks[ob][i][1], ot_verses[ob], fragment ? "quotation" : "unquoted");
+      strcat(D, " [id=\"bibref-"); strcat(D, node_id); strcat(D, "\",label=");
       sprintf(intbuffer, "%d", ot_blocks[ob][i][1]); // length
       strcat(D, intbuffer);
       strcat(D, ",fillcolor=");
@@ -1410,7 +1415,7 @@ void create_diagram() {
     strcat(D, "  nt");
     sprintf(intbuffer, "%d", i); // NT block number
     strcat(D, intbuffer);
-    strcat(D, " [label=");
+    strcat(D, " [id=\"bibref-nt"); strcat(D, intbuffer); strcat(D, "\",label=");
 
     int count_refs = 0;
     int covering_col = nt_blocks[i][0];
@@ -1501,6 +1506,9 @@ void create_diagram() {
 
 
     }
+    add_parseinfo("diagram: metadata: nt%d\t%s\t%s\t%d\t%d\t%s\t%s\n", i,
+      nt_book, nt_info, nt_blocks[i][0] + imin_i, nt_blocks[i][1], nt_verse,
+      nodetype == INTRODUCTION ? "introduction" : nodetype == UNCOVERED ? "unquoted" : "quotation");
     add_parseinfo("\n");
   }
   // Connect the NT nodes in graphviz:
