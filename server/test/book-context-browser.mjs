@@ -21,10 +21,22 @@ try {
     assert.match(await page.locator('.diagram-inspector').innerText(), /HunRUF Isaiah 53:12/);
     assert.doesNotMatch(await page.locator('.diagram-inspector').innerText(), /not mapped|No verified/);
   }
+  // The next prompt must have actual visual clearance from the white diagram.
+  for (const viewport of [{ width: 1280, height: 1000, minGap: 32 }, { width: 375, height: 812, minGap: 24 }]) {
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    await page.locator('#terminal .cmd').scrollIntoViewIfNeeded();
+    const spacing = await page.locator('.diagram').evaluate(diagram => {
+      const prompt = document.querySelector('#terminal .cmd');
+      return { margin: parseFloat(getComputedStyle(diagram).marginBottom), gap: prompt.getBoundingClientRect().top - diagram.getBoundingClientRect().bottom };
+    });
+    assert.ok(spacing.margin >= viewport.minGap, JSON.stringify({ viewport, spacing }));
+    assert.ok(spacing.gap >= viewport.minGap - 1, JSON.stringify({ viewport, spacing }));
+    await page.screenshot({ path: `/tmp/bibref-diagram-spacing-${viewport.width}.png` });
+  }
   await page.evaluate(async () => { await window.bibrefTerminal.exec('lookup HunRUF Isaiah 53:12'); });
   const lines = await page.locator('#terminal .text-line').allTextContents();
   assert.ok(lines.some(line => line.includes('Ezért a nagyok között')));
   assert.ok(!lines.some(line => line.trim() === 'true' || line.trim() === 'false'), 'Internal command status must not be echoed');
   assert.deepEqual(errors, []);
-  console.log(JSON.stringify({ passed: ['Isaiah 53:12 quotation and unquoted blocks show Hungarian context', 'manual lookup works without printing internal true/false'] }));
+  console.log(JSON.stringify({ passed: ['Isaiah 53:12 quotation and unquoted blocks show Hungarian context', 'manual lookup works without printing internal true/false', 'diagram spacing clears the next prompt on desktop and mobile'] }));
 } finally { await browser.close(); }
