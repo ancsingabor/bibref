@@ -107,7 +107,7 @@ Resource defaults:
 
 - Two concurrent commands globally, one per session.
 - 30 submissions/minute/IP, five session creations/hour/IP, 120 API requests/minute/IP.
-- 64 KiB command input, 64 KiB per clipboard, 2 MiB command output.
+- 64 KiB command input, 256 KiB per clipboard, 2 MiB command output.
 - Seven-day sliding session expiry; newest 100 commands and at most 2 MiB of history.
 - 200 MiB global session capacity, conservatively reserved in 2.25 MiB slots.
 - One hour of aggregate execution daily (UTC): reserve the full command deadline
@@ -157,3 +157,15 @@ passed the 23 checks without authentication headers: approximately 0.8 seconds
 to readiness and 0.55 seconds for a Hungarian lookup. A real nearest12 run
 was cancelled from the browser in approximately two seconds and retained both
 clipboards. API/subprocess/storage checks total 13 passing tests.
+
+## Python examples from the book
+
+The Python editor includes both code examples from `bibref-hu-20260812+.pdf`:
+exercise 2.1 (p. 22), counting Matthew 1 names in the LXX, and exercise 2.5
+(p. 45), finding the nearest passages to Matthew 5:31 in Leviticus, Numbers,
+and Deuteronomy. The examples preserve the book’s inputs and operations, with
+source comments, browser-ready indentation, Unicode Greek in the Matthew 5:31
+input (the PDF extracts its Greek font as ASCII), and an English explanatory comment.
+The whole-book searches can take several minutes; Stop cancels a running script.
+A nearest match is a similarity result, not evidence of a quotation: the book
+discusses these particular matches as false positives.
