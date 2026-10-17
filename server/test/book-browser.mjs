@@ -1,0 +1,71 @@
+import { chromium } from 'playwright';
+import assert from 'node:assert/strict';
+const base = process.env.BIBREF_WEB_URL || 'http://127.0.0.1:8092';
+const browser = await chromium.launch({ headless: true });
+const errors = [], results = [];
+const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+const page = await context.newPage(); page.on('pageerror', e => errors.push(e.message));
+const session = () => page.evaluate(async () => (await fetch(`/api/sessions/${sessionStorage.getItem('bibref-session')}`)).json());
+try {
+  await page.goto(base); await page.waitForFunction(() => document.querySelector('#status').textContent === 'Connected', null, { timeout: 60000 });
+  const initial = await session();
+  await page.getByRole('button', { name: 'Book examples', exact: true }).click();
+  assert.equal(await page.locator('#book-count').textContent(), '197 examples');
+  await page.locator('#book-search').fill('Matthew-1,23');
+  await page.locator('#book-list button').first().click();
+  assert.match(await page.locator('#book-preview pre').textContent(), /diagram svg/);
+  await page.getByRole('button', { name: 'Run example', exact: true }).click();
+  await page.waitForFunction(() => /completed|Stopped/.test(document.querySelector('#book-progress').textContent), null, { timeout: 120000 });
+  assert.match(await page.locator('#book-progress').textContent(), /completed/);
+  await page.locator('#book-close').click();
+  await page.waitForSelector('.interactive-diagram svg [role=button]');
+  const before = await session(); assert.notEqual(before.id, initial.id);
+  const fragment = before.history.flatMap(h => h.events).find(e => e.kind === 'svg').fragments.find(f => f.module === 'LXX');
+  await page.locator('.diagram-graphic select').selectOption(fragment.id);
+  await page.waitForFunction(() => document.querySelector('.diagram-inspector')?.textContent.includes('HunRUF Isaiah 7:14'), null, { timeout: 60000 });
+  await page.waitForFunction(() => document.querySelector('.diagram-inspector')?.textContent.includes('fiatal nő'), null, { timeout: 60000 });
+  const after = await session();
+  assert.deepEqual(after.state, before.state); assert.equal(after.revision, before.revision); assert.deepEqual(after.history, before.history);
+  assert.match(await page.locator('.diagram-inspector').innerText(), /Matched: StatResGNT Matthew/);
+  const boxes = await page.locator('.interactive-diagram').evaluate(n => [...n.children].map(c => ({ x: c.getBoundingClientRect().x, y: c.getBoundingClientRect().y })));
+  assert.ok(boxes[1].x > boxes[0].x, 'Inspector beside graph on desktop');
+  await page.locator('.diagram svg [role=button]').last().focus(); await page.keyboard.press('Enter');
+  assert.match(await page.locator('.diagram-inspector h3').innerText(), /Matthew/);
+  await page.screenshot({ path: '/tmp/bibref-book-desktop.png' });
+  results.push('native example, independent session, exact Greek, matches, Hungarian, keyboard, desktop layout');
+  await page.reload(); await page.waitForSelector('.interactive-diagram svg [role=button]');
+  assert.equal(await page.locator('.interactive-diagram').count(), 1);
+  results.push('interactive diagrams restored from history');
+  await page.setViewportSize({ width: 375, height: 812 });
+  const mobile = await page.locator('.interactive-diagram').evaluate(n => [...n.children].map(c => c.getBoundingClientRect().toJSON()));
+  assert.ok(mobile[1].y > mobile[0].y, 'Inspector below graph on mobile');
+  await page.getByRole('button', { name: 'Book examples', exact: true }).click();
+  await page.locator('#book-filter').selectOption('python'); await page.locator('#book-list button').first().click();
+  assert.equal(await page.locator('#book-count').textContent(), '2 examples');
+  await page.screenshot({ path: '/tmp/bibref-book-mobile.png' });
+  await page.getByRole('button', { name: 'Load in Python editor' }).click();
+  await page.waitForSelector('#python-workspace:not([hidden])');
+  await page.waitForFunction(() => document.querySelector('#python-editor')?.textContent.includes('names = ['));
+  results.push('mobile layout, filters, Python source loaded before execution');
+  await page.getByRole('button', { name: 'Book examples', exact: true }).click();
+  await page.keyboard.press('Escape'); assert.ok(await page.locator('#book-open').evaluate(n => document.activeElement === n));
+  results.push('Escape closes library and restores focus');
+  // Old diagrams retain tooltip inspection, while hostile SVG content stays inert.
+  await page.route('**/api/sessions/*', async route => {
+    if (route.request().method() !== 'GET' || new URL(route.request().url()).pathname.split('/').length !== 4) return route.continue();
+    const response = await route.fetch(), data = await response.json();
+    for (const record of data.history) for (const event of record.events || []) if (event.kind === 'svg') {
+      delete event.fragments;
+      event.text = event.text.replace('<svg ', '<svg onload="window.bookXss=1" ').replace('</svg>', '<script>window.bookXss=2</script><a href="javascript:window.bookXss=3"><text>Bad link</text></a></svg>');
+    }
+    await route.fulfill({ response, json: data });
+  });
+  await page.reload(); await page.waitForSelector('.interactive-diagram svg [role=button]');
+  assert.equal(await page.locator('.diagram script,.diagram [onload],.diagram [href]').count(), 0);
+  assert.equal(await page.evaluate(() => window.bookXss), undefined);
+  await page.locator('.diagram svg [role=button]').first().click();
+  assert.match(await page.locator('.diagram-inspector').innerText(), /older diagram/);
+  results.push('legacy tooltip fallback and SVG sanitization');
+  assert.deepEqual(errors, []);
+  console.log(JSON.stringify({ passed: results }, null, 2));
+} finally { await browser.close(); }

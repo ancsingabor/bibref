@@ -1,11 +1,15 @@
 // Optional JSON-lines interface. Normal CLI/WASM builds keep their original I/O.
 #include <iostream>
 #include <set>
+#include <sstream>
+#include <regex>
 #include <string>
 #include <vector>
 #include <nlohmann/json.hpp>
 #include <boost/algorithm/string/trim.hpp>
 #include "books.h"
+#include "book.h"
+extern Book getBook(std::string, std::string);
 #include "cli.h"
 
 using nlohmann::json;
@@ -20,6 +24,35 @@ bool machine_mode = false;
 static constexpr size_t clipboard_bytes = 262144;
 static bool streaming = false, failed = false, initialization_failed = false;
 
+static json diagram_fragments = json::array();
+
+// Metadata originates from parser intervals, never from visible diagram labels.
+void machine_diagram_metadata(const std::string &analysis, const std::string &graphviz) {
+    diagram_fragments = json::array();
+    std::istringstream lines(analysis); std::string line;
+    const std::string marker = "diagram: metadata: ";
+    while (std::getline(lines, line)) {
+        auto pos = line.find(marker); if (pos == std::string::npos) continue;
+        std::istringstream fields(line.substr(pos + marker.size()));
+        std::vector<std::string> values; std::string field;
+        while (std::getline(fields, field, '\t')) values.push_back(field);
+        if (values.size() != 7) continue;
+        const int start = std::stoi(values[3]), length = std::stoi(values[4]);
+        const std::string raw = getRaw(values[1], values[2], start - 1, length);
+        Book book = getBook(values[2], values[1]);
+        const std::string reference = book.getVerseInfoStart(start - 1) + " " + book.getVerseInfoEnd(start + length - 2);
+        json matches = json::array();
+        const std::regex edge(" (nt[0-9]+)->(i[0-9]+) ");
+        for (std::sregex_iterator it(graphviz.begin(), graphviz.end(), edge), end; it != end; ++it) {
+            if ((*it)[1] == values[0]) matches.push_back("bibref-" + (*it)[2].str());
+            if ((*it)[2] == values[0]) matches.push_back("bibref-" + (*it)[1].str());
+        }
+        diagram_fragments.push_back({{"id", "bibref-" + values[0]}, {"kind", values[6]}, {"module", values[1]}, {"book", values[2]},
+            {"start", start}, {"end", start + length - 1}, {"length", length}, {"passage", values[5]}, {"reference", reference},
+            {"greek", latinToGreek(raw)}, {"matches", matches}});
+    }
+}
+
 static void emit(const json &event) { std::cout << event.dump() << '\n' << std::flush; }
 
 void machine_emit(bool is_error, const std::string &message) {
@@ -28,7 +61,9 @@ void machine_emit(bool is_error, const std::string &message) {
     const bool svg = !is_error && message.find("<svg") != std::string::npos &&
         (message.compare(0, 5, "<?xml") == 0 || message.compare(0, 9, "<!DOCTYPE") == 0);
     std::string kind = svg ? "svg" : "text";
-    emit({{"type", "output"}, {"kind", kind}, {"error", is_error}, {"text", message + "\n"}});
+    json event = {{"type", "output"}, {"kind", kind}, {"error", is_error}, {"text", message + "\n"}};
+    if (svg) { event["fragments"] = diagram_fragments; diagram_fragments = json::array(); }
+    emit(event);
 }
 
 int machine_main() {

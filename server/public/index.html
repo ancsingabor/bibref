@@ -5,7 +5,8 @@
 <title>bibref · research terminal</title>
 <link rel="stylesheet" href="/vendor/terminal.min.css"><link rel="stylesheet" href="/style.css">
 <script defer src="/vendor/jquery.min.js"></script><script defer src="/vendor/terminal.min.js"></script>
-<script defer src="/vendor/purify.min.js"></script><script defer src="/client.js"></script>
+<script defer src="/vendor/purify.min.js"></script><script defer src="/book-ui.js"></script>
+<script defer src="/client.js"></script>
 </head>
 <body>
 <header><strong>bibref</strong><span id="status" role="status">Connecting…</span><span id="elapsed"></span>
@@ -14,7 +15,14 @@
 <nav id="workspace-tabs" role="tablist" aria-label="Workspace" hidden>
 <button id="terminal-tab" role="tab" aria-selected="true" aria-controls="terminal">Terminal</button>
 <button id="python-tab" role="tab" aria-selected="false" aria-controls="python-workspace" tabindex="-1">Python</button>
+<button id="book-open" type="button">Book examples</button>
 </nav>
+<dialog id="book-library" aria-labelledby="book-heading">
+<div class="book-heading"><h1 id="book-heading">Book examples</h1><button id="book-close">Close</button></div>
+<div class="book-search"><label>Search <input id="book-search" type="search" placeholder="Passage, command, exercise, or page"></label><label>Type <select id="book-filter"><option value="">All examples</option><option value="commands">Commands</option><option value="diagrams">Diagrams</option><option value="python">Python</option></select></label><span id="book-count" role="status"></span></div>
+<div class="book-panes"><nav id="book-list" aria-label="Book examples"></nav><section id="book-preview" aria-label="Example preview"></section></div>
+<p id="book-progress" role="status" aria-live="polite"></p>
+</dialog>
 <main id="terminal" aria-label="bibref research terminal"></main>
 <main id="python-workspace" role="tabpanel" aria-labelledby="python-tab" hidden>
 <div class="python-toolbar">

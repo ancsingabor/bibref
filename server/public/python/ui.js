@@ -143,5 +143,5 @@ export function initPython({ api, getSession, setBusy }) {
   });
   if (!supported()) state('Python needs HTTPS and a browser supporting cross-origin isolation. Terminal is available.');
   controls();
-  return { focus: () => editor.focus() };
+  return { focus: () => editor.focus(), load: source => { if (active) throw new Error("Stop the current Python run first."); editor.set(source); editor.focus(); } };
 }

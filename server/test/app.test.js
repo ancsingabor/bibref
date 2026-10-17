@@ -6,11 +6,11 @@ import { createApp } from '../app.js';
 
 const resources = [];
 after(async () => { for (const { server, store } of resources) { await new Promise(r => server.close(r)); await store.run.close(); } });
-async function fixture(runner, config = {}) {
+async function fixture(runner, config = {}, modules = []) {
   const ns = `test:${randomUUID()}`;
   const store = await connectStore({ REDIS_URL: process.env.TEST_REDIS_URL || 'redis://127.0.0.1:6380' },
     { prefix: ns, global: `${ns}:limits`, commandMs: 500, dailyMs: 20000, requestRate: 1000, ...config });
-  const app = createApp({ store, manifest: { engineVersion: 'v1', vocabulary: [] }, secret: 'x'.repeat(48), runner,
+  const app = createApp({ store, manifest: { engineVersion: 'v1', vocabulary: [], modules }, secret: 'x'.repeat(48), runner,
     disconnectMs: 20, pollMs: 10, log: () => {} });
   const server = app.listen(0, '127.0.0.1'); await new Promise(r => server.on('listening', r));
   resources.push({ server, store });
@@ -69,4 +69,31 @@ test('storage failure fails closed and exposes no credentials or internal error'
   const body = await response.text(); assert.ok(!body.includes('secret-token')); assert.ok(!body.includes('internal details'));
   // Restore a close function for fixture cleanup.
   store.run = original;
+});
+
+
+test('Hungarian context uses shared jobs without changing reader state or history', async () => {
+  const calls = [];
+  const { request, session } = await fixture(async ({ command, state }, { onEvent }) => {
+    calls.push(command); onEvent({ kind: 'text', text: 'Magyar szöveg' });
+    return { ok: true, state: { ...state, text: ['changed', ''], diagram: 'info' } };
+  }, {}, [{ name: 'HunRUF' }]);
+  const before = await (await request(`/api/sessions/${session.id}`)).json();
+  const response = await request(`/api/sessions/${session.id}/context`, 'POST', { book: 'Isaiah', verse: '7:14' });
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).text, 'Magyar szöveg');
+  assert.deepEqual(calls, ['lookup HunRUF Isaiah 7:14']);
+  const after = await (await request(`/api/sessions/${session.id}`)).json();
+  assert.deepEqual(after.state, before.state); assert.deepEqual(after.history, before.history); assert.equal(after.revision, before.revision);
+  assert.equal((await request(`/api/sessions/${session.id}/context`, 'POST', { book: 'Isaiah\nquit', verse: '7:14' })).status, 400);
+  assert.equal((await request(`/api/sessions/${session.id}/context`, 'POST', { book: 'Isaiah', verse: '7:14 8:1' })).status, 400);
+});
+test('missing Hungarian modules and failed context jobs preserve the reader session', async () => {
+  const absent = await fixture(normal);
+  const response = await absent.request(`/api/sessions/${absent.session.id}/context`, 'POST', { book: 'Isaiah', verse: '7:14' });
+  assert.equal(response.status, 422); assert.equal((await response.json()).code, 'module_unavailable');
+  const failed = await fixture(async () => { throw new ApiError('engine_error', 422); }, {}, ['HunRUF']);
+  assert.equal((await failed.request(`/api/sessions/${failed.session.id}/context`, 'POST', { book: 'Isaiah', verse: '7:14' })).status, 422);
+  const after = await (await failed.request(`/api/sessions/${failed.session.id}`)).json();
+  assert.equal(after.revision, 0); assert.deepEqual(after.history, []); assert.equal(after.active, null);
 });
