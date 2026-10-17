@@ -38,3 +38,5 @@ button:focus-visible,select:focus-visible,summary:focus-visible,pre:focus-visibl
 #terminal .interactive-diagram::before,#terminal .diagram-graphic::before{content:none}
 
 @media(max-width:760px){.diagram{margin-block:12px 24px}}
+
+@media(max-width:760px){#workspace-tabs button{min-width:0;padding:9px 12px}.python-toolbar label{min-width:0;max-width:100%}.python-toolbar select{min-width:0;max-width:100%;flex:1}}
