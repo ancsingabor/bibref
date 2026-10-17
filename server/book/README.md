@@ -21,7 +21,9 @@ The 194 terminal sessions and two Python sessions supply all executable source
 inputs; one additional source session contains only startup output. The catalogue
 also includes the appendix’s referenced full-corpus shell script as download-only.
 
-Hungarian context is restricted to lookup verses attested in the book. Explicit
-Psalm chapter pairs omit split or merged psalms; unavailable mappings stay
-unavailable rather than guessing. Context always consists of whole verses,
+Hungarian context includes the book’s explicit lookup verses and diagram
+passages (including introductions and intermediate verses) under the established
+edition/book numbering rules. Chapters needing special versification remain
+conservative. Explicit Psalm chapter pairs omit split or merged psalms; unavailable
+mappings stay unavailable rather than guessing. Context always consists of whole verses,
 separate from exact Greek intervals. No PDF or Bible corpus is served publicly.

@@ -116,7 +116,7 @@ window.BibrefBookUI = (() => {
       const verseKeys = chapter === lastChapter && last - first < 20
         ? Array.from({ length: last - first + 1 }, (_, i) => `${chapter}:${first + i}`) : bounds;
       const verses = [...new Set(verseKeys.flatMap(verse => catalogue?.contextMappings?.[`${fragment.module} ${fragment.book} ${verse}`] || []))];
-      if (!verses?.length) { context.append(el('p', 'No verified Hungarian verse mapping is available for this block.')); return; }
+      if (!verses?.length) { context.append(el('p', 'Automatic Hungarian context is not mapped for this reference yet. The text may still be available with lookup HunRUF in the terminal.')); return; }
       context.append(el('p', 'Whole Hungarian verses provide context; they do not represent the exact Greek character interval.'));
       let hungarian = '';
       for (const reference of verses) {

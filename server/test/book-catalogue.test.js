@@ -25,3 +25,12 @@ test('context mappings preserve the book’s Psalm numbering and do not invent s
   assert.equal(catalogue.contextMappings['LXX Psalms 113:1'], undefined);
   assert.deepEqual(catalogue.contextMappings['LXX Isaiah 7:14'], ['Isaiah 7:14']);
 });
+
+test('diagram context covers verses without separate Hungarian lookup examples', () => {
+  assert.deepEqual(catalogue.contextMappings['LXX Isaiah 53:12'], ['Isaiah 53:12']);
+  assert.deepEqual(catalogue.contextMappings['StatResGNT Luke 22:37'], ['Luke 22:37']);
+  assert.deepEqual(catalogue.contextMappings['LXX Isaiah 40:4'], ['Isaiah 40:4']);
+  // A Greek reference in a known numbering-exception chapter must not gain
+  // a guessed mapping merely because it occurs in a diagram.
+  assert.equal(catalogue.contextMappings['LXX Isaiah 64:3'], undefined);
+});

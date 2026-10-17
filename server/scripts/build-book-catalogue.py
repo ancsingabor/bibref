@@ -117,9 +117,29 @@ seen={}
 for e in entries:
     n=seen.get(e['id'],0);seen[e['id']]=n+1
     if n:e['id']+=f'-{n+1}'
-# Only expose Hungarian context for attested lookup references. Psalms has
-# explicit chapter pairs, never a blanket chapter offset or a Greek-fragment translation.
+# Context coverage must include diagram passages, not only the book's
+# separately printed Hungarian lookup commands. Statement introductions and
+# fragments inherit their NT edition/book from the statement headline.
 hungarian=set(ref for e in entries for ref in e['hungarian'])
+greek_references=set()
+def passage_verses(start,end=None):
+    start=re.sub(r'[+-].*','',start); end=re.sub(r'[+-].*','',end or start)
+    chapter,first=map(int,start.split(':')); last_chapter,last=map(int,end.split(':'))
+    if chapter==last_chapter and first<=last:
+        return [f'{chapter}:{verse}' for verse in range(first,last+1)]
+    # Cross-chapter intermediate verse counts are not available in the book
+    # source. Keep the two attested endpoints instead of inventing references.
+    return list(dict.fromkeys([start,end]))
+for entry in entries:
+    for command in entry['commands']:
+        if not re.match(r'statement\b',command,re.I): continue
+        headline=re.search(r'connects\s+(SBLGNT|StatResGNT)\s+(\w+)',command)
+        references=list(re.finditer(r'\b(LXX|SBLGNT|StatResGNT)\s+(\w+)\s+(\d+:\d+(?:[+-]\d+)?)(?:\s+(\d+:\d+(?:[+-]\d+)?))?',command))
+        if headline:
+            references += [(headline[1],headline[2],m[1],m[2]) for m in re.finditer(r'\b(?:introduction|fragment)\s+(\d+:\d+(?:[+-]\d+)?)(?:\s+(\d+:\d+(?:[+-]\d+)?))?',command)]
+        for reference in references:
+            edition,book,start,end=tuple(reference[i] for i in range(1,5)) if isinstance(reference,re.Match) else reference
+            for verse in passage_verses(start,end): greek_references.add((edition,book,verse))
 context_mappings={}
 for ref in sorted(hungarian):
     book,verse=ref.split()
@@ -127,6 +147,17 @@ for ref in sorted(hungarian):
     same_numbering_ot={'Genesis','Exodus','Leviticus','Numbers','Deuteronomy','Isaiah','Hosea','Micah','Zechariah','Malachi','Proverbs','Job','II_Samuel'}
     editions=('StatResGNT','SBLGNT') if book in nt_books else ('LXX',) if book in same_numbering_ot else ()
     for edition in editions: context_mappings[f'{edition} {ref}']=[ref]
+# Expand established numbering rules to every diagram verse, even if the
+# author did not print a separate HunRUF lookup for it (e.g. Isaiah 53:12).
+# Keep special-versification chapters conservative unless already explicit.
+numbering_exceptions={'Genesis':{31,32},'Exodus':{20,21,22},'Deuteronomy':{28,29},'Isaiah':{8,9,63,64},'Hosea':{1,2},'Micah':{5},'Proverbs':set(range(1,32)),'Job':{40,41,42}}
+for edition,book,verse in sorted(greek_references):
+    key=f'{edition} {book} {verse}'
+    if key in context_mappings: continue
+    if edition in ('SBLGNT','StatResGNT') and book in nt_books:
+        context_mappings[key]=[f'{book} {verse}']
+    elif edition=='LXX' and book in same_numbering_ot and int(verse.split(':')[0]) not in numbering_exceptions.get(book,set()):
+        context_mappings[key]=[f'{book} {verse}']
 # Verified chapter pairs used by the book; split/merged psalms are omitted.
 psalm_pairs={2:2,8:8,13:14,15:16,18:19,21:22,30:31,33:34,34:35,39:40,40:41,43:44,44:45,46:47,50:51,68:69,69:70,77:78,81:82,82:83,86:87,90:91,93:94,94:95,101:102,103:104,109:110,116:117,117:118}
 for greek_chapter,hu_chapter in psalm_pairs.items():

@@ -161,7 +161,7 @@
   recent.addEventListener('change', () => { if (recent.value) resume(recent.value).catch(e => notice(e.message)); });
   (async () => {
     meta = await (await api('/api/meta')).json();
-    term = $('#terminal').terminal(command => submit(command), { checkArity: false, name: 'bibref-server', greetings: '', prompt: '> ',
+    term = $('#terminal').terminal(async command => { await submit(command); }, { checkArity: false, name: 'bibref-server', greetings: '', prompt: '> ',
       completion: (_, callback) => callback([...new Set([...meta.vocabulary, 'clear'])]), clear: false });
     window.bibrefTerminal = term;
     document.querySelector('#workspace-tabs').hidden = false;
