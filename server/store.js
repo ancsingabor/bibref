@@ -10,7 +10,7 @@ export const defaults = Object.freeze({
   slotBytes: 2304 * 1024, storageBytes: 200 * 1024 * 1024,
   commandBytes: 65536, outputBytes: 2 * 1024 * 1024,
   commandMs: 720000, dailyMs: 3600000, concurrency: 2,
-  commandRate: 30, sessionRate: 5, requestRate: 120,
+  commandRate: 30, sessionRate: 30, sessionIpRate: 120, requestRate: 120,
 });
 export const initialState = () => ({ text: ['', ''], textset: [false, false], colors: true, diagram: 'svg', maxresults: 100 });
 
@@ -97,13 +97,36 @@ export class Store {
       end
       return cjson.encode({ok=true})`, [`${this.global}:activity`], [now, browserId]);
   }
-  async rate(ip, category) {
-    const limits = { commands: [this.config.commandRate, 60], sessions: [this.config.sessionRate, 3600], requests: [this.config.requestRate, 60], pythonStarts: [5, 3600], pythonOperations: [120, 60] };
-    const [limit, window] = limits[category];
-    return this.check(await this.eval(`
-      local n = redis.call('INCR', KEYS[1]); if n == 1 then redis.call('EXPIRE', KEYS[1], ARGV[2]) end
-      if n > tonumber(ARGV[1]) then return cjson.encode({error='rate_limit'}) end
-      return cjson.encode({ok=true})`, [`${this.global}:rate:${category}:${ip}`], [limit, window]));
+  async rate(identity, category, sessionIp) {
+    const limits = { commands: [this.config.commandRate, 60], sessions: [this.config.sessionRate, 3600],
+      sessionIps: [this.config.sessionIpRate, 3600], requests: [this.config.requestRate, 60],
+      pythonStarts: [5, 3600], pythonOperations: [120, 60] };
+    const categories = category === 'sessions' && sessionIp ? [category, 'sessionIps'] : [category];
+    const keys = categories.map(name => name === 'sessions' ? `${this.prefix}:rate:sessions:owner:${identity}` :
+      `${this.global}:rate:${name}:${name === 'sessionIps' ? sessionIp : identity}`);
+    // Check both session buckets before incrementing either, so browser rejections
+    // cannot consume the shared network allowance. All decisions use Redis TTLs.
+    const result = await this.eval(`
+      for i,key in ipairs(KEYS) do
+        local limit = tonumber(ARGV[(i-1)*3+1])
+        if tonumber(redis.call('GET', key) or 0) >= limit then
+          local ttl = redis.call('PTTL', key)
+          if ttl < 0 then redis.call('EXPIRE', key, ARGV[(i-1)*3+2]); ttl=tonumber(ARGV[(i-1)*3+2])*1000 end
+          return cjson.encode({error='rate_limit', retryAfter=math.max(1,math.ceil(ttl/1000)), rateLimit=ARGV[(i-1)*3+3]})
+        end
+      end
+      for i,key in ipairs(KEYS) do
+        local n = redis.call('INCR', key)
+        if n == 1 then redis.call('EXPIRE', key, ARGV[(i-1)*3+2]) end
+      end
+      return cjson.encode({ok=true})`, keys, categories.flatMap(name => [...limits[name], name]));
+    if (result.error) {
+      const error = new ApiError('rate_limit', 429);
+      error.retryAfter = result.retryAfter;
+      error.rateLimit = result.rateLimit;
+      throw error;
+    }
+    return result;
   }
   async create(owner, version) {
     const id = randomUUID(), now = Date.now();

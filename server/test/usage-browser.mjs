@@ -97,6 +97,13 @@ try {
   await page.locator('#shared-usage').evaluate(el => { el.scrollTop = el.scrollHeight; });
   await page.locator('#shared-usage summary').focus(); await page.keyboard.press('Enter');
   assert.equal(await page.locator('#shared-usage').getAttribute('open'), null);
+  store.config.sessionRate = 1;
+  const rejectedSession = page.waitForResponse(response => response.url().endsWith('/api/sessions') && response.request().method() === 'POST');
+  await page.locator('#new-session').click();
+  await page.clock.fastForward(100);
+  assert.equal((await rejectedSession).status(), 429);
+  await waitFor(() => document.querySelector('.terminal-output').textContent.includes('This browser has reached its hourly new-session limit.'));
+  assert.match(await page.locator('.terminal-output').innerText(), /Try again at .*\(local time\)/);
   assert.deepEqual(errors, []);
   await context.close();
   console.log('Usage browser checks passed: keyboard disclosure, multi-tab activity, idle expiry behavior, reservations, outcome refresh, unavailable/stale recovery, desktop/mobile layout.');

@@ -145,3 +145,31 @@ test('anonymous browser activity is deduplicated, throttled, bounded and expires
   await store.activity(randomUUID(), now + 1);
   assert.equal((await store.usage(now + 1)).activeBrowsers, 10000);
 });
+
+test('session limits isolate signed owners and atomically retain a broader network cap', async () => {
+  const { store } = await fixture({ sessionRate: 2, sessionIpRate: 3 });
+  await store.rate('owner-a', 'sessions', 'shared-ip');
+  await store.rate('owner-a', 'sessions', 'shared-ip');
+  await assert.rejects(store.rate('owner-a', 'sessions', 'shared-ip'), error => {
+    assert.equal(error.code, 'rate_limit'); assert.equal(error.rateLimit, 'sessions');
+    assert.ok(error.retryAfter > 3500 && error.retryAfter <= 3600); return true;
+  });
+  await store.rate('owner-b', 'sessions', 'shared-ip');
+  await assert.rejects(store.rate('owner-c', 'sessions', 'shared-ip'), { code: 'rate_limit', rateLimit: 'sessionIps' });
+  assert.equal(await store.run("return redis.call('EXISTS', KEYS[1])", [`${store.prefix}:rate:sessions:owner:owner-c`], []), 0, 'network rejection does not spend browser allowance');
+  const other = await fixture({ sessionRate: 100, sessionIpRate: 3 });
+  const results = await Promise.allSettled(Array.from({ length: 10 }, (_, i) => other.store.rate(`owner-${i}`, 'sessions', 'one-ip')));
+  assert.equal(results.filter(result => result.status === 'fulfilled').length, 3, 'concurrent cookie rotation cannot exceed the network cap');
+});
+
+test('rate-limit retry follows the remaining Redis TTL and expires without extension', async () => {
+  const { store } = await fixture({ sessionRate: 1 });
+  await store.rate('owner', 'sessions', 'ip');
+  const key = `${store.prefix}:rate:sessions:owner:owner`;
+  await store.run("return redis.call('PEXPIRE', KEYS[1], 1500)", [key], []);
+  await assert.rejects(store.rate('owner', 'sessions', 'ip'), { code: 'rate_limit', retryAfter: 2 });
+  await store.run("return redis.call('PEXPIRE', KEYS[1], 40)", [key], []);
+  await new Promise(resolve => setTimeout(resolve, 70));
+  await store.rate('owner', 'sessions', 'ip');
+  assert.ok(await store.run("return redis.call('TTL', KEYS[1])", [key], []) > 3500);
+});

@@ -42,7 +42,16 @@ Implementation constraints:
 
 Verification completed with local Redis and isolated namespaces: slot occupancy,
 reservation/refund behavior, UTC rollover, activity expiry and multiple tabs,
-and unavailable/stale metrics. `npm --prefix server test` passes (29 tests).
+and unavailable/stale metrics. `npm --prefix server test` passes (33 tests).
 `node server/test/usage-browser.mjs` passes desktop, mobile portrait/landscape,
 keyboard disclosure, outcome refresh and failure recovery checks using a
 local deterministic runner. Python was not enabled and nothing was deployed.
+
+## Shared-network session limits
+
+Session creation uses the signed ownership cookie for its normal 30/hour browser
+allowance, with a broader atomic 120/hour/IP safeguard against cookie rotation.
+Tabs sharing a cookie share the normal allowance; separate browsers behind one
+IP do not share it. Command/API limits remain network-scoped. Rate-limit errors
+identify the limiting action and browser/network scope, report the actual Redis
+window retry time, and display that time locally in the example runner/terminal.

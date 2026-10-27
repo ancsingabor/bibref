@@ -91,8 +91,9 @@ export function createApp({ store, manifest, secret, bin, cwd, runner = executeN
   if (pythonEnabled) installPythonApi(app, { store, manifest, owner, ipHash, ensureId, runner, bin, cwd, pollMs, disconnectMs, log });
   installContextApi(app, { store, manifest, owner, ipHash, ensureId, runner, bin, cwd });
   app.post('/api/sessions', async (req, res) => {
-    await store.rate(ipHash(req), 'sessions');
-    const s = await store.create(owner(req, res, true), manifest.engineVersion);
+    const who = owner(req, res, true);
+    await store.rate(who, 'sessions', ipHash(req));
+    const s = await store.create(who, manifest.engineVersion);
     res.status(201).json(publicSession(s, manifest.engineVersion));
   });
   app.get('/api/sessions/:id', async (req, res) => {
@@ -175,6 +176,17 @@ export function createApp({ store, manifest, secret, bin, cwd, runner = executeN
     if (res.headersSent) return res.end();
     const status = err instanceof ApiError ? err.status : err.type === 'entity.too.large' ? 413 : err instanceof SyntaxError ? 400 : 503;
     const code = err instanceof ApiError ? err.code : status === 413 ? 'input_limit' : status === 400 ? 'invalid_json' : 'storage_unavailable';
+    if (code === 'rate_limit' && Number.isSafeInteger(err.retryAfter) && err.retryAfter > 0) {
+      const reasons = { sessions: 'This browser has reached its hourly new-session limit.',
+        sessionIps: 'This network has reached its hourly new-session limit.',
+        commands: 'This network has reached its command submission limit.',
+        requests: 'This network has reached its API request limit.',
+        pythonStarts: 'This network has reached its Python run limit.',
+        pythonOperations: 'This network has reached its Python operation limit.' };
+      res.setHeader('Retry-After', String(err.retryAfter));
+      return res.status(status).json({ code, message: reasons[err.rateLimit] || messages.rate_limit,
+        rateLimit: err.rateLimit, retryAfter: err.retryAfter, retryAt: Date.now() + err.retryAfter * 1000 });
+    }
     if (status === 429) res.setHeader('Retry-After', '60');
     res.status(status).json({ code, message: messages[code] || 'Request could not be processed.' });
   });

@@ -40,7 +40,13 @@
     }
     if (!response.ok) {
       let problem; try { problem = await response.json(); } catch {}
-      const e = new Error(problem?.message || `Request failed (${response.status}).`); e.code = problem?.code; throw e;
+      let message = problem?.message || `Request failed (${response.status}).`;
+      if (problem?.code === 'rate_limit' && Number.isFinite(problem.retryAt)) {
+        message += ` Try again at ${new Date(problem.retryAt).toLocaleTimeString()} (local time).`;
+      }
+      const e = new Error(message); e.code = problem?.code;
+      if (Number.isFinite(problem?.retryAfter)) e.retryAfter = problem.retryAfter;
+      throw e;
     }
     return response;
   }

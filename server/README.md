@@ -111,7 +111,16 @@ Expired leases record an interrupted outcome and do not replay the command.
 Resource defaults:
 
 - Two concurrent commands globally, one per session.
-- 30 submissions/minute/IP, five session creations/hour/IP, 120 API requests/minute/IP.
+- 30 submissions/minute/IP and 120 API requests/minute/IP.
+- 30 new sessions/hour per signed browser owner, plus 120/hour/IP as a broader
+  safeguard. Tabs sharing the ownership cookie share the browser limit; separate
+  browsers on one network have independent normal allowances. Clearing or forging
+  cookies cannot bypass the IP cap. Both session buckets are checked atomically;
+  a browser-limit rejection does not consume network session allowance.
+- Rate-limit errors identify the action/browser-or-network scope and return
+  Redis-TTL-based `Retry-After`, `retryAfter` (seconds), and `retryAt` (Unix
+  milliseconds). The browser shows the retry time in its local timezone. These
+  per-browser/IP windows are separate from the shared UTC execution allowance.
 - 64 KiB command input, 256 KiB per clipboard, 2 MiB command output.
 - Seven-day sliding session expiry; newest 100 commands and at most 2 MiB of history.
 - 200 MiB global session capacity, conservatively reserved in 2.25 MiB slots.
