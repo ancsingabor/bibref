@@ -6,12 +6,22 @@
 <link rel="stylesheet" href="/vendor/terminal.min.css"><link rel="stylesheet" href="/style.css">
 <script defer src="/vendor/jquery.min.js"></script><script defer src="/vendor/terminal.min.js"></script>
 <script defer src="/vendor/purify.min.js"></script><script defer src="/book-ui.js"></script>
+<script defer src="/usage.js"></script>
 <script defer src="/client.js"></script>
 </head>
 <body>
 <header><strong>bibref</strong><span id="status" role="status">Connecting…</span><span id="elapsed"></span>
 <button id="cancel" disabled>Cancel</button><button id="new-session" disabled>New session</button>
 <select id="recent" aria-label="Resume a recent session"><option value="">Recent sessions</option></select></header>
+<details id="shared-usage" aria-label="Shared server usage">
+<summary><span id="usage-summary">Shared server · checking usage…</span></summary>
+<div class="usage-details">
+<p id="usage-breakdown"></p><p id="usage-reset"></p><p id="usage-activity"></p><p id="usage-freshness"></p>
+<p>Preview and production share execution slots and the daily allowance. Each command reserves its full time limit; unused time is refunded when it finishes. Interrupted commands may remain charged at their full reservation. Remaining time does not promise a number of commands.</p>
+<p>When all slots are occupied, try again shortly. When allowance is insufficient, retry after reservations are released or the daily reset. There is no waiting queue or fairness guarantee.</p>
+<p>Approximate browsers means browsers with visible keyboard, pointer, or command activity in the last 15 minutes. Multiple tabs count together where browser storage is available; this is not a count of people or accounts.</p>
+</div></details>
+<span id="usage-announcement" class="sr-only" role="status" aria-atomic="true"></span>
 <nav id="workspace-tabs" role="tablist" aria-label="Workspace" hidden>
 <button id="terminal-tab" role="tab" aria-selected="true" aria-controls="terminal">Terminal</button>
 <button id="python-tab" role="tab" aria-selected="false" aria-controls="python-workspace" tabindex="-1">Python</button>

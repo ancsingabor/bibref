@@ -40,3 +40,10 @@ button:focus-visible,select:focus-visible,summary:focus-visible,pre:focus-visibl
 @media(max-width:760px){.diagram{margin-block:12px 24px}}
 
 @media(max-width:760px){#workspace-tabs button{min-width:0;padding:9px 12px}.python-toolbar label{min-width:0;max-width:100%}.python-toolbar select{min-width:0;max-width:100%;flex:1}}
+
+#shared-usage{flex-shrink:0;background:#11171d;border-bottom:1px solid #27313a;font-size:12px;line-height:1.6;max-height:35vh;overflow:auto}
+#shared-usage summary{position:sticky;top:0;background:#11171d;padding:8px 18px;cursor:pointer;color:#a3b7c7}
+#shared-usage[data-state="limited"] summary{color:#ffd391}
+#shared-usage[data-state="unavailable"] summary,#shared-usage[data-state="stale"] summary{color:#ffd391}
+.usage-details{padding:0 18px 10px;max-width:90ch;color:#a3b7c7}.usage-details p{margin:6px 0}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0}

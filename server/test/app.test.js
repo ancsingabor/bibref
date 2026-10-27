@@ -97,3 +97,23 @@ test('missing Hungarian modules and failed context jobs preserve the reader sess
   const after = await (await failed.request(`/api/sessions/${failed.session.id}`)).json();
   assert.equal(after.revision, 0); assert.deepEqual(after.history, []); assert.equal(after.active, null);
 });
+
+test('usage and activity endpoints expose only aggregates and enforce same-origin mutations', async () => {
+  const { request, store, base } = await fixture(normal, { concurrency: 3, commandMs: 1234, dailyMs: 5678 });
+  const response = await request('/api/usage');
+  assert.equal(response.headers.get('cache-control'), 'no-store');
+  const usage = await response.json();
+  assert.deepEqual(Object.keys(usage).sort(), ['serverTime', 'resetAt', 'slotLimit', 'dailyLimitMs', 'commandMs', 'occupiedSlots', 'consumedMs', 'reservedMs', 'remainingMs', 'activeBrowsers'].sort());
+  assert.equal(usage.slotLimit, 3); assert.equal(usage.remainingMs, 5678); assert.equal(usage.commandMs, 1234);
+  const id = randomUUID();
+  assert.equal((await request('/api/activity', 'POST', { browserId: id })).status, 200);
+  assert.equal((await request('/api/activity', 'POST', { browserId: id })).status, 200);
+  assert.equal((await (await request('/api/usage')).json()).activeBrowsers, 1);
+  assert.equal((await request('/api/activity', 'POST', { browserId: 'bad' })).status, 400);
+  assert.equal((await request('/api/activity', 'POST', {})).status, 400);
+  const crossOrigin = await fetch(`${base}/api/activity`, { method: 'POST', headers: { Origin: 'https://elsewhere.test', 'Content-Type': 'application/json' }, body: JSON.stringify({ browserId: randomUUID() }) });
+  assert.equal(crossOrigin.status, 403);
+  store.usage = async () => { throw new Error('private Redis details'); };
+  const unavailable = await request('/api/usage');
+  assert.equal(unavailable.status, 503); assert.doesNotMatch(await unavailable.text(), /private Redis/);
+});

@@ -75,6 +75,11 @@ incompatible sessions remain readable but cannot execute new commands.
 ## API and execution semantics
 
 - `GET /api/meta`: engine/module versions, notices, completion vocabulary, limits.
+- `GET /api/usage`: aggregate slot occupancy, configured limits, current UTC-day
+  consumed/reserved/available milliseconds, approximate active browsers, server
+  timestamp and next UTC reset timestamp. No ownership or execution identifiers.
+- `POST /api/activity`: same-origin JSON `{ "browserId": "<anonymous UUID>" }`.
+  Returns only `{ "ok": true }`; no session creation or native execution.
 - `GET /api/health`: process/storage availability.
 - `POST /api/sessions` with `{}`: create an anonymous session.
 - `GET /api/sessions/:id`: resume state/history and discover a running command.
@@ -201,3 +206,38 @@ BIBREF_WEB_URL=http://127.0.0.1:8092 node test/book-browser.mjs
 # In the engine build image, with the server directory mounted at /source/server:
 cd /source/build && python3 /source/server/test/book-native.py
 ```
+
+## Shared usage strip
+
+The disclosure below the header shows approximate occupied slots and daily
+allowance available, with consumed time, full outstanding reservations, recent
+browser activity and the UTC reset in local time inside. Preview and production
+share these resources. This is advisory: commands reserve their full configured
+deadline, so available milliseconds do not guarantee admission or a command
+count. Completion refunds unused time to the original admission day, even across
+midnight. Expired/interrupted leases retain the full charge when unused time
+cannot be confirmed; reservation details expire with the admission lease. Jobs
+started by older server versions without reservation metadata appear as charged
+rather than separately reserved until they finish or expire.
+
+Usage refreshes once per minute in visible tabs and after local command outcomes
+(coalesced to at most one refresh per five seconds). Hidden tabs stop polling;
+snapshots older than 90 seconds or past their UTC reset are marked stale. Failed
+requests show unavailable/last-known metrics and never disable command input.
+Countdowns use the server timestamp and local elapsed time. There is no waiting
+queue or fairness guarantee; retry capacity rejection shortly, and allowance
+rejection after refunds or the daily reset.
+
+Activity requires visible pointer, keyboard or command interaction. A separate
+anonymous localStorage UUID deduplicates tabs (with a per-tab fallback if storage
+is blocked); Web Locks serialize reports where supported. Reports are throttled
+to once per minute per browser, and idle tabs never renew activity. Redis keeps
+only anonymous timestamp records from the last 15 minutes, prunes on reads/writes,
+expires the collection after 16 minutes without reports, and caps it at the most
+recent 10,000 browsers. Counts are approximate browsers, never people, accounts,
+sessions or IP addresses. This identifier grants no session access.
+
+Run `node server/test/usage-browser.mjs` for focused Chromium acceptance against
+an ephemeral local HTTP app and isolated local Redis namespace. Its deterministic
+runner tests the UI/API flow without requiring native corpus installation; it
+does not enable the Python workspace. Screenshots go to `server/test-results/`.

@@ -64,6 +64,39 @@ export class Store {
       capacity: 429, rate_limit: 429, lease_lost: 409 })[result.error] || 400);
     return result;
   }
+  async usage(now = Date.now()) {
+    const day = new Date(now).toISOString().slice(0, 10);
+    const budgetKey = `${this.global}:day:${day}`;
+    const metrics = await this.eval(`
+      redis.call('ZREMRANGEBYSCORE', KEYS[1], '-inf', ARGV[1])
+      redis.call('ZREMRANGEBYSCORE', KEYS[3], '-inf', ARGV[1])
+      redis.call('ZREMRANGEBYSCORE', KEYS[4], '-inf', tonumber(ARGV[1])-900000)
+      local reserved = 0
+      for _,member in ipairs(redis.call('ZRANGE', KEYS[3], 0, -1)) do
+        reserved = reserved + tonumber(string.match(member, ':(%d+)$'))
+      end
+      return cjson.encode({occupiedSlots=redis.call('ZCARD', KEYS[1]),
+        chargedMs=tonumber(redis.call('GET', KEYS[2]) or 0), reservedMs=reserved,
+        activeBrowsers=redis.call('ZCARD', KEYS[4])})`,
+      [`${this.global}:running`, budgetKey, `${budgetKey}:reservations`, `${this.global}:activity`], [now]);
+    return { serverTime: now, resetAt: Date.parse(`${day}T00:00:00Z`) + 86400000,
+      slotLimit: this.config.concurrency, dailyLimitMs: this.config.dailyMs,
+      commandMs: this.config.commandMs, occupiedSlots: metrics.occupiedSlots,
+      consumedMs: Math.max(0, metrics.chargedMs - metrics.reservedMs), reservedMs: metrics.reservedMs,
+      remainingMs: Math.max(0, this.config.dailyMs - metrics.chargedMs), activeBrowsers: metrics.activeBrowsers };
+  }
+  async activity(browserId, now = Date.now()) {
+    // Anonymous, bounded, short-lived records; never use owner/session IDs or IPs here.
+    await this.eval(`
+      redis.call('ZREMRANGEBYSCORE', KEYS[1], '-inf', tonumber(ARGV[1])-900000)
+      local previous = redis.call('ZSCORE', KEYS[1], ARGV[2])
+      if not previous or tonumber(previous) <= tonumber(ARGV[1])-60000 then
+        redis.call('ZADD', KEYS[1], ARGV[1], ARGV[2])
+        redis.call('ZREMRANGEBYRANK', KEYS[1], 0, -10001)
+        redis.call('EXPIRE', KEYS[1], 960)
+      end
+      return cjson.encode({ok=true})`, [`${this.global}:activity`], [now, browserId]);
+  }
   async rate(ip, category) {
     const limits = { commands: [this.config.commandRate, 60], sessions: [this.config.sessionRate, 3600], requests: [this.config.requestRate, 60], pythonStarts: [5, 3600], pythonOperations: [120, 60] };
     const [limit, window] = limits[category];
@@ -130,14 +163,17 @@ export class Store {
       s.pending=cjson.decode(ARGV[10])
       if #cjson.encode(s) > tonumber(ARGV[12]) then return cjson.encode({error='storage_full'}) end
       redis.call('INCRBY', KEYS[4], ARGV[8]); redis.call('EXPIRE', KEYS[4], 172800)
+      redis.call('ZREMRANGEBYSCORE', KEYS[7], '-inf', ARGV[6])
+      redis.call('ZADD', KEYS[7], tonumber(ARGV[6])+tonumber(ARGV[8])+30000, ARGV[13])
+      redis.call('EXPIRE', KEYS[7], 172800)
       redis.call('ZADD', KEYS[3], tonumber(ARGV[6])+tonumber(ARGV[8])+30000, KEYS[2])
       redis.call('SET', KEYS[1], cjson.encode(s), 'KEEPTTL')
       redis.call('DEL', KEYS[5]); redis.call('SET', KEYS[2], ARGV[10], 'PX', tonumber(ARGV[8])+30000)
       local ttl=tonumber(ARGV[11]); if s.python then ttl=math.max(1,math.ceil((s.python.deadline-tonumber(ARGV[6]))/1000)+30) end
       redis.call('EXPIRE', KEYS[1], ttl); redis.call('ZADD', KEYS[6], tonumber(ARGV[6])+ttl*1000, KEYS[1])
       return cjson.encode({status='accepted', session=s})`,
-      [this.key(id), this.lock(id), `${this.global}:running`, budgetKey, this.cancelKey(id), `${this.global}:sessions`],
-      [owner, revision, requestId, command, version, now, c.concurrency, reservedMs, c.dailyMs, JSON.stringify(job), c.sessionTTL, c.slotBytes]));
+      [this.key(id), this.lock(id), `${this.global}:running`, budgetKey, this.cancelKey(id), `${this.global}:sessions`, `${budgetKey}:reservations`],
+      [owner, revision, requestId, command, version, now, c.concurrency, reservedMs, c.dailyMs, JSON.stringify(job), c.sessionTTL, c.slotBytes, `${token}:${reservedMs}`]));
     if (result.session && !Array.isArray(result.session.history)) result.session.history = [];
     return { ...result, job };
   }
@@ -179,11 +215,12 @@ export class Store {
       if cjson.decode(raw).revision ~= tonumber(ARGV[2]) then return cjson.encode({error='stale_revision'}) end
       redis.call('SET', KEYS[1], ARGV[3], 'EX', ARGV[4]); redis.call('ZADD', KEYS[6], tonumber(ARGV[7])+tonumber(ARGV[4])*1000, KEYS[1])
       redis.call('DEL', KEYS[2], KEYS[5]); redis.call('ZREM', KEYS[3], KEYS[2])
+      redis.call('ZREM', KEYS[7], ARGV[9])
       redis.call('DECRBY', KEYS[4], ARGV[5]); redis.call('EXPIRE', KEYS[4], 172800)
       return cjson.encode({revision=tonumber(ARGV[6])})`,
-      [this.key(id), this.lock(id), `${this.global}:running`, job.budgetKey, this.cancelKey(id), `${this.global}:sessions`],
+      [this.key(id), this.lock(id), `${this.global}:running`, job.budgetKey, this.cancelKey(id), `${this.global}:sessions`, `${job.budgetKey}:reservations`],
       [job.token, session.revision, JSON.stringify(next), ttl,
-        Math.max(0, job.reservedMs - Math.min(job.reservedMs, record.durationMs)), next.revision, Date.now(), state ? 1 : 0]));
+        Math.max(0, job.reservedMs - Math.min(job.reservedMs, record.durationMs)), next.revision, Date.now(), state ? 1 : 0, `${job.token}:${job.reservedMs}`]));
   }
   async remove(id, owner) {
     this.check(await this.eval(`

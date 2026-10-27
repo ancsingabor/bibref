@@ -92,9 +92,9 @@ export function initPython({ api, getSession, setBusy }) {
           state(error.code === 'capacity' ? 'Waiting for capacity' : 'Waiting for request allowance');
           await wait(task, error.code === 'rate_limit' ? 60000 : delay); delay = Math.min(delay * 2, 10000); continue;
         }
-        if (!error.code) return recover(task, `${url}/${requestId}`);
+        if (!error.code) return await recover(task, `${url}/${requestId}`);
         throw error;
-      }
+      } finally { window.dispatchEvent(new Event('bibref-usage-change')); }
     }
     throw new Error('Run stopped');
   }

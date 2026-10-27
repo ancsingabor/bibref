@@ -98,3 +98,50 @@ test('oversized history keeps an outcome receipt and trimmed failures cannot rep
   await store.finish(session.id, next.session, next.job, record(next.job, 'failed'), null);
   await assert.rejects(store.claim(session.id, owner, 0, first.job.requestId, first.job.command, 'v1'), {code:'stale_revision'});
 });
+
+test('usage aggregates reservations, refunds and conservative expired-lease charges', async () => {
+  const { store, owner, session } = await fixture({ commandMs: 1000, dailyMs: 3000 });
+  const a = await store.claim(session.id, owner, 0, randomUUID(), 'private command', 'v1');
+  let usage = await store.usage();
+  assert.equal(usage.occupiedSlots, 1); assert.equal(usage.reservedMs, 1000);
+  assert.equal(usage.consumedMs, 0); assert.equal(usage.remainingMs, 2000);
+  await store.finish(session.id, a.session, a.job, record(a.job), initialState());
+  usage = await store.usage();
+  assert.equal(usage.occupiedSlots, 0); assert.equal(usage.reservedMs, 0);
+  assert.equal(usage.consumedMs, 20); assert.equal(usage.remainingMs, 2980);
+  const b = await store.claim(session.id, owner, 1, randomUUID(), 'help', 'v1');
+  usage = await store.usage(b.job.deadline + 30001);
+  assert.equal(usage.occupiedSlots, 0); assert.equal(usage.reservedMs, 0);
+  assert.equal(usage.consumedMs, 1020); assert.equal(usage.remainingMs, 1980);
+  assert.doesNotMatch(JSON.stringify(usage), new RegExp(`${session.id}|${owner}|${a.job.token}|private command`));
+});
+
+test('usage midnight rollover keeps refunds on the admission day', async t => {
+  const { store, owner, session } = await fixture({ commandMs: 1000, dailyMs: 3000 });
+  const before = Date.parse('2030-02-02T23:59:59.900Z'), after = before + 200;
+  t.mock.method(Date, 'now', () => before);
+  const a = await store.claim(session.id, owner, 0, randomUUID(), 'help', 'v1');
+  assert.equal((await store.usage()).reservedMs, 1000);
+  Date.now.mock.mockImplementation(() => after);
+  const nextDay = await store.usage();
+  assert.equal(nextDay.occupiedSlots, 1); assert.equal(nextDay.reservedMs, 0);
+  assert.equal(nextDay.remainingMs, 3000);
+  assert.equal(nextDay.resetAt, Date.parse('2030-02-04T00:00:00Z'));
+  await store.finish(session.id, a.session, a.job, record(a.job), initialState());
+  assert.equal((await store.usage()).remainingMs, 3000);
+  assert.equal((await store.usage(before)).consumedMs, 20);
+});
+
+test('anonymous browser activity is deduplicated, throttled, bounded and expires', async () => {
+  const { store } = await fixture();
+  const now = Date.now(), id = randomUUID();
+  await store.activity(id, now); await store.activity(id, now + 1000);
+  assert.equal((await store.usage(now + 1000)).activeBrowsers, 1);
+  assert.equal((await store.usage(now + 900000)).activeBrowsers, 0, 'suppressed duplicate must not extend expiry');
+  await store.activity(id, now); await store.activity(randomUUID(), now);
+  assert.equal((await store.usage(now + 1)).activeBrowsers, 2);
+  assert.ok(await store.run("return redis.call('TTL', KEYS[1])", [`${store.global}:activity`], []) > 0);
+  await store.run("for i=1,10000 do redis.call('ZADD', KEYS[1], ARGV[1], tostring(i)) end return 1", [`${store.global}:activity`], [String(now)]);
+  await store.activity(randomUUID(), now + 1);
+  assert.equal((await store.usage(now + 1)).activeBrowsers, 10000);
+});
