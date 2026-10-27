@@ -162,7 +162,11 @@ all requested Hungarian/Hebrew and existing-module lookups, Greek clipboard
 comparison, tokens/search, an underscored book, real Tab completion, multiline
 Statement paste, SVG, refresh/resume and escaping hostile clipboard text.
 Hebrew ordering and SVG were visually inspected. No browser errors occurred.
-Browser assets total 340,176 bytes; no WASM, module ZIP or corpus request occurs.
+Terminal code/style assets retain a 500 KiB browser acceptance budget; the book
+example catalogue has a separate 384 KiB data budget. No WASM, module ZIP or
+corpus request occurs. The isolated local acceptance fixture allows 1,000 API
+requests/minute for its batched browser suites; production retains 120, with rate
+enforcement covered independently in isolated store/API tests.
 Local readiness was approximately 0.3 seconds; the first measured preview
 readiness was approximately 1.1 seconds, with a sample HunRUF lookup taking
 approximately 0.6 seconds over the network. Measurements depend on network,
