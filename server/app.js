@@ -9,8 +9,8 @@ import { installContextApi } from './context-api.js';
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const messages = {
   rate_limit: 'Too many requests. Please wait before trying again.',
-  capacity: 'Both command slots are occupied. Please try again shortly.',
-  daily_budget: 'Today’s execution allowance has been used. Commands resume at midnight UTC.',
+  capacity: 'All command slots are occupied. Try again shortly; there is no waiting queue or fairness guarantee.',
+  daily_budget: 'Today’s available execution allowance is insufficient for a full command reservation. Retry after running commands release unused time, or after midnight UTC.',
   stale_revision: 'This session changed in another request. Refresh before continuing.',
   incompatible_version: 'This session uses a different engine version. Its history is available; start a new session to run commands.',
   busy: 'A command is already running in this session.',
@@ -81,12 +81,19 @@ export function createApp({ store, manifest, secret, bin, cwd, runner = executeN
   app.get('/api/meta', (req, res) => res.json({ ...manifest, features: { python: pythonEnabled }, limits: {
     commandBytes: store.config.commandBytes, outputBytes: store.config.outputBytes,
     commandSeconds: store.config.commandMs / 1000, sessionDays: store.config.sessionTTL / 86400 } }));
+  app.get('/api/usage', async (req, res) => res.json(await store.usage()));
+  app.post('/api/activity', async (req, res) => {
+    if (typeof req.body?.browserId !== 'string' || !uuid.test(req.body.browserId)) throw new ApiError('invalid_id');
+    await store.activity(req.body.browserId);
+    res.json({ ok: true });
+  });
   app.get('/api/health', (req, res) => res.json({ ok: true, engineVersion: manifest.engineVersion }));
   if (pythonEnabled) installPythonApi(app, { store, manifest, owner, ipHash, ensureId, runner, bin, cwd, pollMs, disconnectMs, log });
   installContextApi(app, { store, manifest, owner, ipHash, ensureId, runner, bin, cwd });
   app.post('/api/sessions', async (req, res) => {
-    await store.rate(ipHash(req), 'sessions');
-    const s = await store.create(owner(req, res, true), manifest.engineVersion);
+    const who = owner(req, res, true);
+    await store.rate(who, 'sessions', ipHash(req));
+    const s = await store.create(who, manifest.engineVersion);
     res.status(201).json(publicSession(s, manifest.engineVersion));
   });
   app.get('/api/sessions/:id', async (req, res) => {
@@ -169,6 +176,17 @@ export function createApp({ store, manifest, secret, bin, cwd, runner = executeN
     if (res.headersSent) return res.end();
     const status = err instanceof ApiError ? err.status : err.type === 'entity.too.large' ? 413 : err instanceof SyntaxError ? 400 : 503;
     const code = err instanceof ApiError ? err.code : status === 413 ? 'input_limit' : status === 400 ? 'invalid_json' : 'storage_unavailable';
+    if (code === 'rate_limit' && Number.isSafeInteger(err.retryAfter) && err.retryAfter > 0) {
+      const reasons = { sessions: 'This browser has reached its hourly new-session limit.',
+        sessionIps: 'This network has reached its hourly new-session limit.',
+        commands: 'This network has reached its command submission limit.',
+        requests: 'This network has reached its API request limit.',
+        pythonStarts: 'This network has reached its Python run limit.',
+        pythonOperations: 'This network has reached its Python operation limit.' };
+      res.setHeader('Retry-After', String(err.retryAfter));
+      return res.status(status).json({ code, message: reasons[err.rateLimit] || messages.rate_limit,
+        rateLimit: err.rateLimit, retryAfter: err.retryAfter, retryAt: Date.now() + err.retryAfter * 1000 });
+    }
     if (status === 429) res.setHeader('Retry-After', '60');
     res.status(status).json({ code, message: messages[code] || 'Request could not be processed.' });
   });

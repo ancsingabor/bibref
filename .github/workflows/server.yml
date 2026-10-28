@@ -32,6 +32,7 @@ jobs:
       - run: python3 server/test/python-compat.py
       - run: npm --prefix server audit --omit=dev
       - run: node server/node_modules/playwright/cli.js install --with-deps chromium firefox webkit
+      - run: node server/test/usage-browser.mjs
       - run: node server/test/python-runtime-browser.mjs
       - run: docker build -f Dockerfile.vercel -t bibref-python-test .
       - name: Start isolated native acceptance server

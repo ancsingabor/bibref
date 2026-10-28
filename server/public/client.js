@@ -32,10 +32,21 @@
     } else term.echo(safeText(event.text), { raw: true });
   }
   async function api(url, method = 'GET', body) {
-    const response = await fetch(url, { method, credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) });
+    let response;
+    try {
+      response = await fetch(url, { method, credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) });
+    } finally {
+      if (method === 'POST' && url.endsWith('/context')) window.dispatchEvent(new Event('bibref-usage-change'));
+    }
     if (!response.ok) {
       let problem; try { problem = await response.json(); } catch {}
-      const e = new Error(problem?.message || `Request failed (${response.status}).`); e.code = problem?.code; throw e;
+      let message = problem?.message || `Request failed (${response.status}).`;
+      if (problem?.code === 'rate_limit' && Number.isFinite(problem.retryAt)) {
+        message += ` Try again at ${new Date(problem.retryAt).toLocaleTimeString()} (local time).`;
+      }
+      const e = new Error(message); e.code = problem?.code;
+      if (Number.isFinite(problem?.retryAfter)) e.retryAfter = problem.retryAfter;
+      throw e;
     }
     return response;
   }
@@ -148,6 +159,7 @@
       }
     } finally {
       clearInterval(clock); elapsed.textContent = ''; active = null; busy = false; controls();
+      window.dispatchEvent(new Event('bibref-usage-change'));
     }
     return succeeded;
   }

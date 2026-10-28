@@ -97,3 +97,55 @@ test('missing Hungarian modules and failed context jobs preserve the reader sess
   const after = await (await failed.request(`/api/sessions/${failed.session.id}`)).json();
   assert.equal(after.revision, 0); assert.deepEqual(after.history, []); assert.equal(after.active, null);
 });
+
+test('usage and activity endpoints expose only aggregates and enforce same-origin mutations', async () => {
+  const { request, store, base } = await fixture(normal, { concurrency: 3, commandMs: 1234, dailyMs: 5678 });
+  const response = await request('/api/usage');
+  assert.equal(response.headers.get('cache-control'), 'no-store');
+  const usage = await response.json();
+  assert.deepEqual(Object.keys(usage).sort(), ['serverTime', 'resetAt', 'slotLimit', 'dailyLimitMs', 'commandMs', 'occupiedSlots', 'consumedMs', 'reservedMs', 'remainingMs', 'activeBrowsers'].sort());
+  assert.equal(usage.slotLimit, 3); assert.equal(usage.remainingMs, 5678); assert.equal(usage.commandMs, 1234);
+  const id = randomUUID();
+  assert.equal((await request('/api/activity', 'POST', { browserId: id })).status, 200);
+  assert.equal((await request('/api/activity', 'POST', { browserId: id })).status, 200);
+  assert.equal((await (await request('/api/usage')).json()).activeBrowsers, 1);
+  assert.equal((await request('/api/activity', 'POST', { browserId: 'bad' })).status, 400);
+  assert.equal((await request('/api/activity', 'POST', {})).status, 400);
+  const crossOrigin = await fetch(`${base}/api/activity`, { method: 'POST', headers: { Origin: 'https://elsewhere.test', 'Content-Type': 'application/json' }, body: JSON.stringify({ browserId: randomUUID() }) });
+  assert.equal(crossOrigin.status, 403);
+  store.usage = async () => { throw new Error('private Redis details'); };
+  const unavailable = await request('/api/usage');
+  assert.equal(unavailable.status, 503); assert.doesNotMatch(await unavailable.text(), /private Redis/);
+});
+
+test('shared-IP browsers have independent session limits and actionable retry metadata', async () => {
+  const { request, base } = await fixture(normal, { sessionRate: 2, sessionIpRate: 3 });
+  assert.equal((await request('/api/sessions', 'POST', {})).status, 201);
+  const before = Date.now();
+  const blocked = await request('/api/sessions', 'POST', {});
+  assert.equal(blocked.status, 429);
+  const problem = await blocked.json();
+  assert.equal(problem.rateLimit, 'sessions'); assert.match(problem.message, /browser/);
+  assert.equal(blocked.headers.get('retry-after'), String(problem.retryAfter));
+  assert.ok(problem.retryAfter > 3500 && problem.retryAfter <= 3600);
+  assert.ok(problem.retryAt >= before + problem.retryAfter * 1000 && problem.retryAt <= Date.now() + problem.retryAfter * 1000);
+  const freshBrowser = cookie => fetch(`${base}/api/sessions`, { method: 'POST', headers: { Origin: base, 'Content-Type': 'application/json', ...(cookie ? { Cookie: cookie } : {}) }, body: '{}' });
+  const second = await freshBrowser(); assert.equal(second.status, 201, 'another signed browser on the same IP is admitted');
+  const secondSession = await second.json();
+  const cookie = second.headers.get('set-cookie').split(';')[0];
+  assert.equal((await fetch(`${base}/api/sessions/${secondSession.id}`, { headers: { Cookie: cookie } })).status, 200);
+  const rotated = await freshBrowser(`bibref_owner=${randomUUID()}.9999999999999.invalid`);
+  assert.equal(rotated.status, 429);
+  const network = await rotated.json(); assert.equal(network.rateLimit, 'sessionIps'); assert.match(network.message, /network/);
+  assert.equal((await request(`/api/sessions/${secondSession.id}`)).status, 404, 'limits do not change ownership isolation');
+  assert.doesNotMatch(JSON.stringify(problem), /owner|cookie|token|127\.0\.0\.1/);
+});
+
+test('general API rate errors retain their scope and remaining minute-window retry', async () => {
+  const { request } = await fixture(normal, { requestRate: 2 });
+  assert.equal((await request('/api/meta')).status, 200);
+  const blocked = await request('/api/meta'); assert.equal(blocked.status, 429);
+  const problem = await blocked.json();
+  assert.equal(problem.rateLimit, 'requests'); assert.ok(problem.retryAfter > 0 && problem.retryAfter <= 60);
+  assert.equal(blocked.headers.get('retry-after'), String(problem.retryAfter));
+});

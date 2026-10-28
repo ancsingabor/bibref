@@ -83,11 +83,19 @@ try {
   assert.equal(await page.locator('#terminal img').count(), 0);
   assert.ok(!resources.some(u => /bibref\.(js|data)|\/modules\/|\.zip(?:$|\?)/.test(u)));
   assert.deepEqual(errors, []);
-  const assetBytes = await page.evaluate(() => performance.getEntriesByType('resource').filter(r => !r.name.includes('/api/')).reduce((n,r)=>n+r.decodedBodySize,0));
-  assert.ok(assetBytes < 500 * 1024, `client assets ${assetBytes} exceed 500 KiB`);
-  const report = { url, loadMs, assetBytes, errors, results };
+  const { assetBytes, catalogueBytes } = await page.evaluate(() => {
+    const assets = performance.getEntriesByType('resource').filter(r => !new URL(r.name).pathname.startsWith('/api/'));
+    const catalogue = r => new URL(r.name).pathname === '/book-examples.json';
+    return { assetBytes: assets.filter(r => !catalogue(r)).reduce((n,r) => n+r.decodedBodySize, 0),
+      catalogueBytes: assets.filter(catalogue).reduce((n,r) => n+r.decodedBodySize, 0) };
+  });
+  // Keep the executable/style budget: loading Python in Terminal must still fail.
+  // The book library adds bounded application data, separate from its UI code.
+  assert.ok(assetBytes < 500 * 1024, `client code/styles ${assetBytes} exceed 500 KiB`);
+  assert.ok(catalogueBytes < 384 * 1024, `book catalogue ${catalogueBytes} exceeds 384 KiB`);
+  const report = { url, loadMs, assetBytes, catalogueBytes, totalAssetBytes: assetBytes + catalogueBytes, errors, results };
   fs.writeFileSync(path.join(output, 'browser.json'), JSON.stringify(report, null, 2));
-  console.log(JSON.stringify({ url, loadMs, assetBytes, checks: results.length, errors, output }, null, 2));
+  console.log(JSON.stringify({ url, loadMs, assetBytes, catalogueBytes, checks: results.length, errors, output }, null, 2));
   await page.evaluate(async () => {
     const id = sessionStorage.getItem('bibref-session');
     await fetch(`/api/sessions/${id}`, { method:'DELETE', headers:{'Content-Type':'application/json'}, body:'{}' });
