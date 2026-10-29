@@ -4,5 +4,8 @@ __pycache__/
 node_modules/
 server/public/vendor/
 server/test-results/
-.agents/
+.agents/*
+!.agents/skills/
+.agents/skills/*
+!.agents/skills/speckit-*/
 skills-lock.json
