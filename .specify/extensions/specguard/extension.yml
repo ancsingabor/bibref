@@ -1,0 +1,35 @@
+schema_version: "1.0"
+extension:
+  id: "specguard"
+  name: "SpecGuard"
+  version: "0.2.0"
+  description: "Maintainer-reviewed deterministic verification and private agent-authored evidence summaries"
+  category: "process"
+  effect: "read-write"
+requires:
+  speckit_version: "==1.2.5"
+provides:
+  commands:
+    - name: "speckit.specguard.prepare"
+      file: "commands/prepare.md"
+      description: "Agree bounded acceptance evidence before implementation"
+    - name: "speckit.specguard.review"
+      file: "commands/review.md"
+      description: "Review application checks and one-attempt authorization"
+    - name: "speckit.specguard.verify"
+      file: "commands/verify.md"
+      description: "Run one approved attempt, assess delivery and stop"
+hooks:
+  before_implement:
+    command: "speckit.specguard.prepare"
+    optional: false
+    description: "Agree acceptance evidence and stopping rule before implementation"
+  after_analyze:
+    command: "speckit.specguard.review"
+    optional: true
+    description: "Prepare application check selection for maintainer review"
+    prompt: "Review verification checks and execution conditions?"
+  after_implement:
+    command: "speckit.specguard.verify"
+    optional: false
+    description: "Verify the approved selection and assess delivery"

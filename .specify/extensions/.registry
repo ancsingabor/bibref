@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "extensions": {
+    "specguard": {
+      "version": "0.2.0",
+      "source": "local",
+      "manifest_hash": "sha256:dfbee6f6550d6563507396ffe782da423d7c897e6393d4d59a3b492e326a235b",
+      "enabled": true,
+      "priority": 10,
+      "registered_commands": {
+        "codex": [
+          "speckit.specguard.prepare",
+          "speckit.specguard.review",
+          "speckit.specguard.verify"
+        ]
+      },
+      "registered_skills": [],
+      "installed_at": "2026-11-01T11:04:49.163322+00:00"
+    }
+  }
+}
