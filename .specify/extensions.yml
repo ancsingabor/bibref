@@ -1,0 +1,32 @@
+installed:
+- specguard
+settings:
+  auto_execute_hooks: true
+hooks:
+  before_implement:
+  - extension: specguard
+    command: speckit.specguard.prepare
+    enabled: true
+    optional: false
+    priority: 10
+    prompt: Execute speckit.specguard.prepare?
+    description: Agree acceptance evidence and stopping rule before implementation
+    condition: null
+  after_analyze:
+  - extension: specguard
+    command: speckit.specguard.review
+    enabled: true
+    optional: true
+    priority: 10
+    prompt: Review verification checks and execution conditions?
+    description: Prepare application check selection for maintainer review
+    condition: null
+  after_implement:
+  - extension: specguard
+    command: speckit.specguard.verify
+    enabled: true
+    optional: false
+    priority: 10
+    prompt: Execute speckit.specguard.verify?
+    description: Verify the approved selection and assess delivery
+    condition: null
