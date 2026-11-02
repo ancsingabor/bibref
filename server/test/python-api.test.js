@@ -12,21 +12,27 @@ async function fixture(runner, config = {}, enabled = true) {
   const ns = `test:python:${randomUUID()}`;
   const store = await connectStore({ REDIS_URL: process.env.TEST_REDIS_URL || 'redis://127.0.0.1:6380' },
     { prefix: ns, global: `${ns}:limits`, commandMs: 500, dailyMs: 20000, requestRate: 1000, ...config });
+  let executions = 0;
   const app = createApp({ store, manifest: { engineVersion: 'v1', modules: [{ name: 'LXX' }, { name: 'SBLGNT' }] },
-    secret: 'x'.repeat(48), runner, pythonEnabled: enabled, disconnectMs: 20, pollMs: 10, log: () => {} });
+    secret: 'x'.repeat(48), runner: (...args) => { executions++; return runner(...args); }, pythonEnabled: enabled, disconnectMs: 20, pollMs: 10, log: () => {} });
   const server = app.listen(0, '127.0.0.1'); await new Promise(r => server.on('listening', r));
   resources.push({ server, store });
   const base = `http://127.0.0.1:${server.address().port}`;
   let cookie;
-  const request = async (url, method = 'GET', body) => {
-    const response = await fetch(base + url, { method, headers: { Origin: base, 'Content-Type': 'application/json', ...(cookie ? { Cookie: cookie } : {}) }, body: body === undefined ? undefined : JSON.stringify(body) });
-    if (response.headers.get('set-cookie')) cookie = response.headers.get('set-cookie').split(';')[0];
+  const request = async (url, method = 'GET', body, options = {}) => {
+    const headers = new Headers({ Origin: base, 'Content-Type': 'application/json', ...(cookie ? { Cookie: cookie } : {}) });
+    for (const [key, value] of Object.entries(options.headers || {})) {
+      if (value === null) headers.delete(key); else headers.set(key, value);
+    }
+    const response = await fetch(base + url, { method, headers,
+      body: options.rawBody ?? (body === undefined ? undefined : JSON.stringify(body)) });
+    if (options.keepCookie !== false && response.headers.get('set-cookie')) cookie = response.headers.get('set-cookie').split(';')[0];
     return response;
   };
   const session = await (await request('/api/sessions', 'POST', {})).json();
   const root = `/api/sessions/${session.id}/python-runs`;
   const start = async (revision = 0) => (await request(root, 'POST', { revision })).json();
-  return { request, session, store, base, root, start };
+  return { request, session, store, base, root, start, get cookie() { return cookie; }, get executions() { return executions; } };
 }
 const frames = text => text.trim().split('\n\n').map(x => JSON.parse(x.slice(6)));
 const normal = async ({ command, state }, { onEvent }) => {
@@ -153,4 +159,70 @@ test('Python operation deadlines abort work and run creation is limited to five/
     await f.request(`${f.root}/${next.id}/end`, 'POST', {});
   }
   assert.equal((await f.request(f.root, 'POST', { revision: 0 })).status, 429);
+});
+
+// Denials compare raw parent/run state, active/cancel keys and the parent-run link.
+// Rate counters, TTL changes and renewed cookies are deliberately outside this claim.
+async function pythonSnapshot(f, runId) {
+  const runs = new PythonStore(f.store);
+  const keys = [f.store.key(f.session.id), f.store.lock(f.session.id),
+    runs.link(f.session.id), runs.key(runId), runs.lock(runId), runs.cancelKey(runId)];
+  return f.store.eval("local values={}; for i,key in ipairs(KEYS) do values[i]=redis.call('GET',key) end; return cjson.encode(values)", keys);
+}
+
+test('G1 enabled Python ownership matrix (16 cases)', async t => {
+  const routes = ['create', 'operation', 'receipt', 'end'];
+  const owners = ['owning', 'other', 'missing', 'malformed'];
+  for (const [routeIndex, route] of routes.entries()) for (const [ownerIndex, condition] of owners.entries()) {
+    const caseId = `G1-${String(25 + routeIndex * 4 + ownerIndex).padStart(2, '0')}`;
+    await t.test(`${caseId} Python ${route}: ${condition}`, async () => {
+      const f = await fixture(normal, { commandMs: 5000, dailyMs: 100000 });
+      const otherResponse = await f.request('/api/sessions', 'POST', {}, { headers: { Cookie: null }, keepCookie: false });
+      assert.equal(otherResponse.status, 201); await otherResponse.json();
+      const other = otherResponse.headers.get('set-cookie').split(';')[0];
+      const run = route === 'create' ? { id: randomUUID() } : await f.start();
+      assert.ok(run.id);
+      const runs = new PythonStore(f.store), requestId = randomUUID(), url = `${f.root}/${run.id}`;
+      const operation = { requestId, sequence: 0, operation: 'maxresults', args: [10000] };
+      if (route === 'receipt') {
+        const response = await f.request(`${url}/operations`, 'POST', operation);
+        assert.equal(frames(await response.text()).at(-1).type, 'completed');
+      }
+      if (route === 'end') {
+        const saved = await f.store.eval("return redis.call('GET',KEYS[1])", [runs.key(run.id)]);
+        await runs.claim(run.id, saved.owner, 0, requestId, JSON.stringify({ operation: 'maxresults', args: [10000] }), 'v1', saved.python.deadline);
+      }
+      const before = await pythonSnapshot(f, run.id), calls = f.executions;
+      const cookie = condition === 'owning' ? f.cookie : condition === 'other' ? other : condition === 'missing' ? null : 'bibref_owner=malformed';
+      const paths = {
+        create: [f.root, 'POST', { revision: 0 }], operation: [`${url}/operations`, 'POST', operation],
+        receipt: [`${url}/operations/${requestId}`, 'GET'], end: [`${url}/end`, 'POST', {}],
+      };
+      const [target, method, body] = paths[route];
+      const response = await f.request(target, method, body, { headers: { Cookie: cookie }, keepCookie: false });
+      const text = await response.text();
+      if (condition !== 'owning') {
+        assert.equal(response.status, 404);
+        assert.deepEqual(JSON.parse(text), { code: 'not_found', message: 'Session or command is unavailable or has expired.' });
+        assert.doesNotMatch(text, /"(?:state|history|active|record|owner|command)"/);
+        assert.ok(!text.includes(run.id)); assert.ok(!text.includes(f.session.id));
+        assert.equal(f.executions, calls); assert.deepEqual(await pythonSnapshot(f, run.id), before);
+      } else {
+        assert.equal(response.status, route === 'create' ? 201 : 200);
+        if (route === 'create') {
+          const created = JSON.parse(text); assert.match(created.id, /^[0-9a-f-]{36}$/);
+          const parent = await f.store.eval("return redis.call('GET',KEYS[1])", [f.store.key(f.session.id)]);
+          const privateRun = await runs.getRun(created.id, f.session.id, parent.owner);
+          assert.deepEqual(privateRun.session.state, f.session.state);
+        }
+        if (route === 'operation') { assert.equal(frames(text).at(-1).record.value, 10000); assert.equal(f.executions, calls + 1); }
+        if (route === 'receipt') assert.equal(JSON.parse(text).record.requestId, requestId);
+        if (route === 'end') {
+          const after = await pythonSnapshot(f, run.id);
+          assert.equal(JSON.parse(after[3]).python.ended, true); assert.equal(after[5], '1');
+          assert.equal(after[0], before[0], 'ending private work leaves terminal state unchanged');
+        }
+      }
+    });
+  }
 });

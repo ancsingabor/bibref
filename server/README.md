@@ -254,3 +254,34 @@ Run `node server/test/usage-browser.mjs` for focused Chromium acceptance against
 an ephemeral local HTTP app and isolated local Redis namespace. Its deterministic
 runner tests the UI/API flow without requiring native corpus installation; it
 does not enable the Python workspace. Screenshots go to `server/test-results/`.
+
+### Risk-selected verification groups
+
+The finite case inventory and expected outcomes are defined in
+[verification contracts](../specs/002-strengthen-hosted-verification/contracts/verification.md).
+These checks extend existing suites; missing prior assertions identified coverage
+questions, not demonstrated application defects. No runtime remediation is included.
+
+| Group | Gap and observation | Positive controls | Limits |
+| --- | --- | --- | --- |
+| G1: HTTP ownership, 40 cases | Ten terminal/context/enabled-Python route families each exercise owning, other valid, missing and malformed cookies. Denials assert 404, no protected response fields/IDs, no extra runner invocation, and unchanged saved session/run, lease and cancellation state. | Fresh owner read/delete/submit/receipt/context/create/operate/cancel/end cases; cancellation/end use controlled paused leases. | Synthetic local owners and Redis fixtures; rate accounting, cookie renewal and TTL renewal are outside protected-state comparisons. A paused lease is not proof of OS process cancellation. |
+| G2: cookies/origin/input, B01–B24 | Signed expired and tampered cookies, origin/type/parser boundaries, IDs/revisions/NUL, multibyte byte limits, cookie attributes, context validation, sanitized storage failure. Rejections assert no extra runner call or protected-state change. | Valid origin/JSON, exact byte limit, valid command after rejection, local and simulated secure issuance. | Finite inputs, not exhaustive fuzzing; header simulation does not prove browser cookie enforcement or production proxy configuration. |
+| G3: native adapter, N01–N11 | Actual executeNative with controlled subprocess writes/errors checks framing and error categories; hosted failures retain clipboard/settings, record failure receipts, advance revision and release active work. | Valid split/coalesced output and terminal result. | OS read chunk boundaries are nondeterministic. Fixtures use memoryLimit=false; no claim about Linux prlimit enforcement, real module corpus or native numerical correctness. Duplicate terminal/schema/metadata completion questions receive bounded source review rather than invented rejection rules. |
+
+Supporting evidence reuses the complete server/store/Python API suite, including
+existing crash, malformed JSON, cancellation/process-group, deadline, output-limit
+and credential-sentinel checks. Python compatibility uses a fake engine. Usage
+browser coverage uses a fake runner; Python runtime browser coverage uses a mocked
+operation bridge across Chromium, Firefox and WebKit. These do not establish safe
+execution of arbitrary Python, full enabled-Python browser integration or real-engine
+corpus acceptance. Production-scope `npm audit --omit=dev --json` supplies
+point-in-time known-advisory metadata, not exploitability analysis; its advisory
+network use and transmitted metadata require concrete disclosure and approval.
+No new scanner, broad lint framework, automatic upgrade, production scan or deployment
+is part of this feature.
+
+Prepare dependencies in the separately approved isolated Linux copy. Do not run
+checks merely because dependencies exist. The final selection requires exact
+execution approval and one SpecGuard attempt, then one bounded assessment and a
+terminal stop on every outcome. Preserve failures and missing evidence; distinguish
+observations from agent judgments and keep maintainer acceptance separate.
