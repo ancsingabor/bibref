@@ -106,3 +106,24 @@ findings with revisit triggers, record lessons, and recommend Good enough to clo
 or Blocked. Unmet required claims or unavailable required evidence block closure.
 No retry, repair, new checks or extended investigation after that terminal stop.
 Maintainer acceptance remains a separate decision.
+
+## Runner host and Linux command boundary
+
+The installed SpecGuard runner supports macOS arm64 with Node 24/26. Keep that
+runner on the supported host; execute the five application entries through exact,
+reviewed Docker argument arrays against the prepared Linux image. Run diff hygiene
+on the host against the isolated copy's pinned Git baseline. The six logical
+entries and existing budgets remain unchanged. Never run the runner inside Linux
+and assume its host preflight supports that platform.
+
+Pin the prepared local image ID, use `--pull=never`, and bind only the isolated
+copy and fresh browser-artifact destination. Share the disposable Redis container's
+network namespace for loopback service access; publish no host ports. The container
+namespace may permit outbound network: application checks are approved only for
+local fixture traffic, while the audit entry separately discloses registry HTTPS.
+Do not forward host credentials or configuration into containers.
+
+Disclose before execution that host process-group cleanup supervises Docker client
+processes, not every process in Docker's Linux VM. Docker's signal forwarding and
+container removal do not establish a hard sandbox guarantee; interrupted attempts
+may leave owned containers requiring separate cleanup. Never silently rerun checks.
