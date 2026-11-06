@@ -11,3 +11,8 @@ skills-lock.json
 server/node_modules
 server/public/vendor
 server/test-results
+
+# Q&A private runtime inputs and fixture suites
+**/*.qa-private.json
+server/test
+server/qa/corpus

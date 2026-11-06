@@ -21,6 +21,7 @@ WORKDIR /app/server
 COPY server/package*.json ./
 RUN npm ci --omit=dev
 COPY server ./
+# Private Aquinas inputs are mounted at runtime after serving-rights approval.
 RUN node vendor.js
 
 FROM ubuntu:24.04

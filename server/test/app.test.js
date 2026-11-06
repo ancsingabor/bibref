@@ -329,3 +329,52 @@ elif r['command']=='crash':
     }
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
+
+test('disabled Q&A uses no terminal request quota and preserves session state', async () => {
+  const { request, session, store } = await fixture(normal);
+  const rate = store.rate.bind(store);
+  let calls = 0;
+  store.rate = async (...args) => { calls++; return rate(...args); };
+  const disabled = await request('/api/qa/meta');
+  assert.equal((await disabled.json()).enabled, false);
+  assert.equal((await request('/api/qa/requests', 'POST', { language: 'en' })).status, 503);
+  assert.equal(calls, 0);
+  const response = await request('/api/sessions/' + session.id);
+  assert.equal(response.status, 200);
+  const restored = await response.json();
+  assert.equal(restored.revision, session.revision);
+  assert.deepEqual(restored.state, session.state);
+  assert.ok(calls > 0);
+});
+
+test('canonical and failing Q&A routes leave terminal and Python defaults independent', async () => {
+  const { createQaRouter } = await import('../qa/api.js');
+  const origin = 'https://qa.example.test';
+  const qaRouter = createQaRouter({
+    config: { enabled: true, origin, price: { expires: Date.now() + 60000 }, keys: { binding: { bytes: Buffer.alloc(32, 3) } } },
+    corpus: { manifest: { rightsStatus: 'approved', version: 'fixture', sourceLanguage: 'en' } },
+    ledger: { network() { throw new Error('database-password-sentinel'); } },
+    // Constructor-only origin injection avoids relying on fetch overriding Host.
+    requestOrigin: req => req.get('x-test-qa-origin') === origin ? origin : null,
+  });
+  const { request, session, store } = await fixture(normal, {}, [], { qaRouter });
+  const rate = store.rate.bind(store);
+  let calls = 0;
+  store.rate = async (...args) => { calls++; return rate(...args); };
+  const meta = await (await request('/api/qa/meta')).json();
+  assert.equal(meta.enabled, false);
+  assert.equal(meta.canonicalUrl, origin + '/qa.html');
+  const canonical = { headers: { 'x-test-qa-origin': origin, origin } };
+  assert.equal((await (await request('/api/qa/meta', 'GET', undefined, canonical)).json()).enabled, true);
+  const failed = await request('/api/qa/requests', 'POST', { language: 'en' }, canonical);
+  assert.equal(failed.status, 503);
+  assert.doesNotMatch(await failed.text(), /database-password-sentinel/);
+  assert.equal(calls, 0);
+  assert.equal((await (await request('/api/meta')).json()).features.python, false);
+  const response = await request('/api/sessions/' + session.id);
+  assert.equal(response.status, 200);
+  const restored = await response.json();
+  assert.deepEqual(restored.state, session.state);
+  assert.equal(restored.revision, session.revision);
+  assert.ok(calls > 0);
+});

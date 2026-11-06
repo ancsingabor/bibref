@@ -1,0 +1,70 @@
+{
+  "ST.I.q2.a1": {
+    "en": ["self evident", "meaning of the word god", "ontological argument"],
+    "hu": ["magától értetődő", "önmagában nyilvánvaló", "isten szó jelentése", "ontológiai érv"]
+  },
+  "ST.I.q2.a2": {
+    "en": ["from effects", "finite effects", "demonstration from effects", "demonstrate god s existence"],
+    "hu": ["a hatásokból", "véges hatásokból", "isten létezésének bizonyítása", "hatásból az okra"]
+  },
+  "ST.I.q2.a3": {
+    "en": ["existence of god", "god exists", "five ways", "first way", "second way", "third way", "fourth way", "fifth way", "first mover", "first cause", "evil disproves god s existence"],
+    "hu": ["isten létezése", "isten léte", "öt út", "első út", "második út", "harmadik út", "negyedik út", "negyedik útban", "ötödik út", "első mozgató", "első ok"]
+  },
+  "ST.I.q3.a1": {
+    "en": ["god is a body", "god s dimensions", "god is bodily", "divine corporeality"],
+    "hu": ["isten test", "isten testi", "isten méretei", "isten testetlensége"]
+  },
+  "ST.I.q3.a4": {
+    "en": ["essence and existence", "god s essence and existence", "subsistent existence", "common being"],
+    "hu": ["isten lényege és létezése", "isteni lényeg és lét", "közös lét", "önmagában fennálló lét"]
+  },
+  "ST.I.q3.a7": {
+    "en": ["divine simplicity", "god s simplicity", "composition in god"],
+    "hu": ["isteni egyszerűség", "isten egyszerűsége", "összetettség istenben"]
+  },
+  "ST.I.q14.a2": {
+    "en": ["knowledge of himself", "divine self knowledge", "god know himself", "god knows himself"],
+    "hu": ["isten önismeretét", "isten önismerete", "isteni önismeret", "isten önmagát"]
+  },
+  "ST.I.q14.a5": {
+    "en": ["things other than himself", "god s knowledge of creatures"],
+    "hu": ["tőle különböző dolgokat", "tőle különböző dolgok", "isten a teremtményeket"]
+  },
+  "ST.I.q14.a13": {
+    "en": ["future contingent", "future contingents", "knowledge of future contingents"],
+    "hu": ["jövőbeli esetleges", "jövőbeli esetlegesség", "jövőbeli kontingens"]
+  },
+  "ST.I.q22.a1": {
+    "en": ["providence mean", "divine providence", "definition of providence"],
+    "hu": ["mit jelent a gondviselés", "isteni gondviselés", "gondviselés fogalma"]
+  },
+  "ST.I.q22.a3": {
+    "en": ["providence be immediate", "providence itself is indirect", "immediacy of providence", "mediated execution"],
+    "hu": ["közvetlen a gondviselés", "gondviselés közvetlensége", "másodlagos okok"]
+  },
+  "ST.I.q22.a4": {
+    "en": ["providence make every event necessary", "providence and necessity", "providence and contingency"],
+    "hu": ["szükségszerűvé tesz", "gondviselés bizonyossága", "gondviselés és esetlegesség"]
+  },
+  "ST.I.q45.a1": {
+    "en": ["creation from nothing", "create from nothing", "ex nihilo"],
+    "hu": ["semmiből való teremtés", "semmiből teremtés", "anyag nélküli teremtés"]
+  },
+  "ST.I.q45.a2": {
+    "en": ["creation from ordinary change", "creation and change", "creation is not change"],
+    "hu": ["teremtést a közönséges változástól", "teremtés és változás", "teremtés nem változás"]
+  },
+  "ST.I.q48.a1": {
+    "en": ["evil as a privation", "privation of good", "evil a nature"],
+    "hu": ["a rosszat hiánynak", "jó hiánya", "a rossz természete"]
+  },
+  "ST.I.q49.a1": {
+    "en": ["good cause evil", "good causes evil", "good and evil are contraries"],
+    "hu": ["jó és a rossz ellentétes", "a jó okozhat rosszat", "jó a rossz oka"]
+  },
+  "ST.I.q49.a2": {
+    "en": ["moral fault", "god cause evil", "divine causation of evil"],
+    "hu": ["erkölcsi vétket", "erkölcsi vétek", "isten okozza a rosszat", "isteni okság"]
+  }
+}

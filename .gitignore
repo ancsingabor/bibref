@@ -9,3 +9,6 @@ server/test-results/
 .agents/skills/*
 !.agents/skills/speckit-*/
 skills-lock.json
+
+# Local Q&A corpus and reviewed pricing inputs
+*.qa-private.json

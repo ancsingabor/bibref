@@ -1,3 +1,4 @@
+import { createQaRouter } from './qa/api.js';
 import express from 'express';
 import { createHmac, timingSafeEqual, randomUUID } from 'node:crypto';
 import path from 'node:path';
@@ -26,7 +27,7 @@ const publicSession = (s, version) => ({ id: s.id, revision: s.revision, state: 
   createdAt: s.createdAt, lastActiveAt: s.lastActiveAt, closed: s.closed, compatible: s.version === version });
 const publicJob = (j) => j ? ({ requestId: j.requestId, command: j.command, startedAt: j.startedAt, deadline: j.deadline }) : null;
 
-export function createApp({ store, manifest, secret, bin, cwd, runner = executeNative, publicDir = path.join(import.meta.dirname, 'public'), log = console.log, disconnectMs = 10000, pollMs = 2000, pythonEnabled = false }) {
+export function createApp({ store, manifest, secret, bin, cwd, runner = executeNative, publicDir = path.join(import.meta.dirname, 'public'), log = console.log, disconnectMs = 10000, pollMs = 2000, pythonEnabled = false, qaRouter = createQaRouter() }) {
   if (!secret || secret.length < 32) throw new Error('A strong BIBREF_COOKIE_SECRET is required');
   const app = express();
   app.disable('x-powered-by');
@@ -65,7 +66,7 @@ export function createApp({ store, manifest, secret, bin, cwd, runner = executeN
       res.setHeader('Content-Security-Policy', `default-src 'none'; script-src 'wasm-unsafe-eval' ${origin}/vendor/pyodide/ ${origin}/python/worker.js; connect-src ${origin}/vendor/pyodide/ ${origin}/python/tools.py; worker-src 'none'; object-src 'none'`);
     }
     if (req.path.startsWith('/api')) res.setHeader('Cache-Control', 'no-store');
-    if (req.method !== 'GET' && req.method !== 'HEAD') {
+    if (req.method !== 'GET' && req.method !== 'HEAD' && req.path !== '/api/qa' && !req.path.startsWith('/api/qa/')) {
       // Trust only the deployment's own origin; protect anonymous owner cookies against CSRF.
       const origin = req.headers.origin;
       if (!origin || origin !== `${req.protocol}://${req.get('host')}`) return next(new ApiError('invalid_origin', 403));
@@ -73,6 +74,7 @@ export function createApp({ store, manifest, secret, bin, cwd, runner = executeN
     }
     next();
   });
+  app.use(qaRouter);
   app.use('/api', async (req, res, next) => {
     try { await store.rate(ipHash(req), 'requests'); next(); }
     catch (e) { next(e); }

@@ -37,7 +37,9 @@ jobs:
       - run: docker build -f Dockerfile.vercel -t bibref-python-test .
       - name: Start isolated native acceptance server
         run: |
-          docker run -d --name bibref-python-acceptance --network host --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges:true -e PORT=8091 -e TEST_REDIS_URL=redis://127.0.0.1:6380 bibref-python-test node /app/server/test/python-local-server.mjs
+          docker run -d --name bibref-python-acceptance --network host --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges:true \
+            --mount "type=bind,source=${GITHUB_WORKSPACE}/server/test/python-local-server.mjs,target=/app/server/test/python-local-server.mjs,readonly" \
+            -e PORT=8091 -e TEST_REDIS_URL=redis://127.0.0.1:6380 bibref-python-test node /app/server/test/python-local-server.mjs
           for attempt in $(seq 1 40); do curl -fsS http://127.0.0.1:8091/api/health && exit 0; sleep 1; done
           exit 1
       - run: node server/test/python-browser.mjs
@@ -49,6 +51,9 @@ jobs:
           for attempt in $(seq 1 40); do curl -fsS http://127.0.0.1:8091/api/health && break; sleep 1; done
           node server/test/browser.mjs
           node server/test/cancel-browser.mjs
+      - name: Show acceptance server logs on failure
+        if: failure()
+        run: docker logs bibref-python-acceptance 2>&1 || true
       - uses: actions/upload-artifact@v4
         if: always()
         with:
