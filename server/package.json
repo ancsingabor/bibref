@@ -23,6 +23,8 @@
     "express": "^5.1.0",
     "jquery": "3.7.1",
     "jquery.terminal": "2.48.1",
+    "js-tiktoken": "1.0.21",
+    "pg": "8.23.1",
     "pyodide": "314.0.7",
     "redis": "^5.0.0"
   },

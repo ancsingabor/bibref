@@ -285,3 +285,45 @@ checks merely because dependencies exist. The final selection requires exact
 execution approval and one SpecGuard attempt, then one bounded assessment and a
 terminal stop on every outcome. Preserve failures and missing evidence; distinguish
 observations from agent judgments and keep maintainer acceptance separate.
+
+## Hosted Aquinas Q&A
+
+Q&A is disabled by default. The terminal and optional Python client use their
+existing stores and quotas. A disabled deployment with a configured canonical
+origin can link to that origin from `/qa.html`. The image contains the runtime
+modules. Mount an independently approved immutable corpus bundle and reviewed
+price manifest privately using `BIBREF_QA_CORPUS_PATH` and `BIBREF_QA_PRICE_PATH`.
+
+Before enabling, verify the exact HTTPS origin, trusted immediate proxy peer IPs
+(`BIBREF_QA_TRUSTED_PROXY_IPS`), header overwrite behavior, PostgreSQL primary TLS,
+durability and restore fencing, corpus rights, provider wrapper overhead and
+reviewed price ceilings. `BIBREF_QA_EPOCH` must match Control. The operator sets
+`BIBREF_QA_OPERATIONAL_APPROVAL=1` only after those gates are evidenced.
+Cookie, binding and receipt keys use `version:base64url` with 32 random bytes per
+key and separate key material. Mount credentials only in the server process.
+
+Use a dedicated provider key, foreground Responses requests with `store=false`,
+and disable request bodies and parameters in application, proxy, SQL and APM
+capture. Verify provider retention for the actual account. Encrypted receipts
+expire after 24 hours. Apply restricted backup access, retention, and key
+lifecycle to WAL and backups that contain expired ciphertext. Pause admission
+before rotation until all affected ticket and receipt windows are accounted for.
+
+If a dispatch is uncertain, preserve the reservation and occupancy. Reconcile
+only using reliable completion and usage evidence; never retry that dispatch.
+Restore into a disabled epoch, compare durable external records against restored
+financial data, and establish that acknowledged reservations and settlements
+survived before enabling. A local HTTP timeout alone cannot free paid capacity.
+
+Apply `server/qa/migrations/001-qa.sql` and `002-runtime.sql` as a dedicated
+migration owner. Keep that owner credential outside the app. Grant the hosted
+login membership in `bibref_qa_runtime` only. Runtime access is through the
+listed SQL functions. Direct table access and owner-only `qa.reconcile` are
+denied. Initialize the disabled Control row and the current UTC month together
+before the first activation. The disposable integration database uses a local
+administrator to set up the schema, then exercises the restricted role.
+
+After independently verifying provider completion and actual usage, an
+operator can record the stage confirmation and run `qa.reconcile` under the
+migration owner. Reconcile only expired operations whose stages are confirmed
+or provably unsent. Review any active halt reason before re-enabling.

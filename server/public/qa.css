@@ -1,0 +1,8 @@
+body { font: 1rem/1.55 system-ui, sans-serif; color-scheme: light dark; }
+main { max-width: 48rem; margin: 2rem auto; padding: 0 1rem; }
+form { display: grid; gap: .7rem; }
+button, select, textarea { font: inherit; }
+button, select { justify-self: start; }
+textarea { padding: .6rem; }
+blockquote { border-inline-start: .2rem solid; margin-inline: 0; padding-inline: 1rem; white-space: pre-wrap; }
+details { margin-block: 1rem; }
